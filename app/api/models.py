@@ -1,6 +1,4 @@
-"""
-数据响应模型
-"""
+"""Data response models."""
 
 from typing import Any
 
@@ -8,7 +6,7 @@ from pydantic import BaseModel
 
 
 class ResponseModel(BaseModel):
-    """标准成功响应"""
+    """Standard success response."""
 
     code: int = 200
     message: str = "success"
@@ -16,7 +14,7 @@ class ResponseModel(BaseModel):
 
 
 class ErrorResponse(BaseModel):
-    """标准错误响应"""
+    """Standard error response."""
 
     code: int = 400
     message: str = "An error occurred"

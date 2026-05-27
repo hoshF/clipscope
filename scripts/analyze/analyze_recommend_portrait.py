@@ -1,14 +1,14 @@
-"""
-抖音推荐流分析工具 — 通过分析推荐给您的视频，反推您的人物画像
+"""Douyin recommendation feed analyzer - infer your user profile from recommendations.
 
-原理：
-    抖音的推荐算法会根据您的画像（兴趣、年龄段、性别等）推送内容。
-    分析推荐流中视频的共同特征，可以折射出算法对您的判断。
+Principle:
+    Douyin's recommendation algorithm pushes content based on your profile
+    (interests, age, gender, etc.). By analyzing common features of recommended
+    videos, we can infer what the algorithm thinks about you.
 
-用法：
-    python scripts/analyze/analyze_recommend_portrait.py              # 收集100条推荐并分析
-    python scripts/analyze/analyze_recommend_portrait.py --count 50   # 自定义收集数量
-    python scripts/analyze/analyze_recommend_portrait.py --json-only  # 只保存数据不分析
+Usage:
+    python scripts/analyze/analyze_recommend_portrait.py              # Collect 100 feeds and analyze
+    python scripts/analyze/analyze_recommend_portrait.py --count 50   # Custom count
+    python scripts/analyze/analyze_recommend_portrait.py --json-only  # Save data only, no analysis
 """
 
 import asyncio

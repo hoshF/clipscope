@@ -1,26 +1,26 @@
 """
-用户画像分析工具（评论版）
+Fan portrait analysis tool (comment-based).
 
-基于用户视频下的评论数据，分析粉丝群体特征：
-  - 地域分布（基于 IP 归属地）
-  - 活跃时段分布
-  - 粉丝画像（KOL 比例、普通用户比例）
-  - 情感倾向分析
-  - 高频关键词提取
-  - 评论者忠诚度评估
+Analyzes fan demographics from comment data under a user's videos:
+  - Geographic distribution (based on IP locations)
+  - Active time distribution
+  - Fan type distribution (KOL ratio, regular user ratio)
+  - Sentiment analysis
+  - Keyword extraction
+  - Commenter loyalty assessment
 
-使用方式：
+Usage:
     python scripts/analyze/analyze_fan_portrait.py <sec_user_id_or_dir>
 
-示例：
+Example:
     python scripts/analyze/analyze_fan_portrait.py MS4wLjABAAAA...
     python scripts/analyze/analyze_fan_portrait.py data/comments/user123/
 
-输出：
+Output:
     data/comments/<sec_user_id>/
         └── profile/
-            ├── profile_report.json     结构化画像报告
-            └── report.txt              文本报告
+            ├── profile_report.json     Structured portrait report
+            └── report.txt              Text report
 """
 
 import json

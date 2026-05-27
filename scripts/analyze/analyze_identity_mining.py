@@ -1,26 +1,25 @@
-"""
-用户身份信息挖掘工具（评论 + 作品描述版）
+"""User identity mining tool (comments + post descriptions).
 
-基于评论内容和作品描述，自动提取目标用户的身份线索：
-  - 出生地推断（基于最多评论 IP 归属地）
-  - 教育背景（学校、专业、年级）
-  - 社交关系（好友、伴侣、亲戚）
-  - 活动地点轨迹
-  - 姓名昵称线索
-  - 其他身份特征（宠物、职业、爱好）
+Automatically extracts identity clues from comments and post captions:
+  - Birthplace inference (based on most common comment IP locations)
+  - Education background (schools, majors, grades)
+  - Social relationships (friends, partners, relatives)
+  - Activity location traces
+  - Name/nickname clues
+  - Other identity traits (pets, occupation, hobbies)
 
-使用方式：
+Usage:
     python scripts/analyze/analyze_identity_mining.py <sec_user_id_or_dir>
 
-示例：
+Example:
     python scripts/analyze/analyze_identity_mining.py MS4wLjABAAAA...
     python scripts/analyze/analyze_identity_mining.py data/comments/user123/
 
-输出：
+Output:
     data/comments/<sec_user_id>/
         └── identity/
-            ├── identity_report.json    结构化身份报告
-            └── report.txt              文本报告
+            ├── identity_report.json    Structured identity report
+            └── report.txt              Text report
 """
 
 import json
@@ -36,7 +35,7 @@ from utils import data_utils
 
 
 def load_comments(sec_user_id_or_dir: str) -> tuple:
-    """加载评论数据"""
+    """Load comment data."""
     if os.path.isdir(sec_user_id_or_dir):
         data_dir = sec_user_id_or_dir
     else:
@@ -54,8 +53,8 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
     meta_path = os.path.join(data_dir, "_meta.json")
 
     if not os.path.exists(comments_path):
-        print(f"❌ 未找到评论数据: {comments_path}")
-        print("   请先运行: python scripts/collect/collect_comments.py <URL>")
+        print(f"❌ Comment data not found: {comments_path}")
+        print("   Please run: python scripts/collect/collect_comments.py <URL>")
         sys.exit(1)
 
     with open(comments_path, encoding="utf-8") as f:
@@ -73,16 +72,15 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 分析引擎
+# Analysis engine
 # ═══════════════════════════════════════════════════════════════════
 
 
 def analyze_birthplace(comments: list) -> dict:
-    """
-    基于 IP 归属地分布推断出生地。
+    """Infer birthplace from IP location distribution.
 
-    使用 data_utils.analyze_ip_distribution 获取 IP 分布数据，
-    从中提取占比最高的地区作为出生地推断。
+    Uses data_utils.analyze_ip_distribution to get IP distribution,
+    extracts the region with the highest percentage.
     """
     ip_data = data_utils.analyze_ip_distribution(comments)
     top_region = ip_data.get("inferred_home", "无法推断")
@@ -90,13 +88,13 @@ def analyze_birthplace(comments: list) -> dict:
     total = ip_data.get("total_with_ip", 0)
 
     region_type = (
-        "海外"
+        "overseas"
         if top_region and any(k in top_region for k in ["海外", "美国", "日本", "韩国", "英国"])
-        else "国内"
+        else "domestic"
     )
 
     return {
-        "possible_birthplace": top_region or "无法推断",
+        "possible_birthplace": top_region or "(unknown)",
         "region_type": region_type,
         "confidence": confidence,
         "total_samples": total,
@@ -111,14 +109,13 @@ def analyze_birthplace(comments: list) -> dict:
 
 
 def analyze_relationships(comments: list, videos: dict, target_user: dict) -> dict:
-    """
-    从评论内容和 @ 提及中提取社交关系。
+    """Extract social relationships from comments and @ mentions.
 
-    自动过滤目标用户自己的评论（自评不构成社交关系）。
+    Auto-filters target user's own comments (self-comments don't count).
     """
     target_uid = target_user.get("uid", "")
 
-    # 收集所有 @ 提及（从作品描述中）
+    # Collect all @ mentions (from post descriptions)
     mentioned_users = Counter()
     for vid, vinfo in videos.items():
         desc = vinfo.get("desc", "")
@@ -126,14 +123,14 @@ def analyze_relationships(comments: list, videos: dict, target_user: dict) -> di
         for m in mentions:
             mentioned_users[m] += 1
 
-    # 分析评论中自称关系的语句
-    # 注意：在中文女性社交语境中，"老婆""我老婆"通常是闺蜜间的亲昵称呼，
-    # 不代表真实婚姻或恋爱关系，归为"闺蜜/亲密好友"类型。
+    # Analyze relationship self-declarations in comments
+    # Note: in Chinese female social context, "老婆" "我老婆" are usually
+    # affectionate terms between close friends, not romantic relationships.
     relationship_keywords = {
-        "女朋友": ["女朋友", "女友", "我对象"],
-        "男朋友": ["男朋友", "男友", "我老公"],
-        "闺蜜/亲密好友": ["闺蜜", "姐妹", "集美", "老婆", "我老婆", "宝贝", "宝宝"],
-        "家人": [
+        "girlfriend": ["女朋友", "女友", "我对象"],
+        "boyfriend": ["男朋友", "男友", "我老公"],
+        "close_friend": ["闺蜜", "姐妹", "集美", "老婆", "我老婆", "宝贝", "宝宝"],
+        "family": [
             "三叔",
             "叔叔",
             "姑姑",
@@ -151,13 +148,13 @@ def analyze_relationships(comments: list, videos: dict, target_user: dict) -> di
             "表姐",
             "表哥",
         ],
-        "同学": ["同学", "室友", "舍友"],
+        "classmate": ["同学", "室友", "舍友"],
     }
 
-    # 过滤：排除目标用户自己的评论（自评不构成社交关系）
+    # Filter: exclude target user's own comments (self-comments don't count)
     other_comments = [c for c in comments if c.get("user", {}).get("uid", "") != target_uid]
 
-    # 评论者之间的关系自述
+    # Relationship self-declarations from commenters
     relationship_declarations = []
     for c in other_comments:
         text = c.get("text", "")
@@ -179,7 +176,7 @@ def analyze_relationships(comments: list, videos: dict, target_user: dict) -> di
                     )
                     break
 
-    # 找出跨视频互动最频繁的评论者（关系密切）
+    # Find most frequent cross-video interactors (close relationships)
     user_video_count = Counter()
     user_comments = defaultdict(list)
     for c in other_comments:
@@ -196,7 +193,7 @@ def analyze_relationships(comments: list, videos: dict, target_user: dict) -> di
                 }
             )
 
-    # 频繁互动者 = 可能的好友/铁粉
+    # Frequent interactors = likely friends/close fans
     top_commenters = data_utils.analyze_top_commenters(comments, top_n=10)
     frequent_interactors = []
     for c in top_commenters:
@@ -233,7 +230,7 @@ def analyze_education(videos: dict, comments: list, target_user: dict) -> dict:
     """
     clues = []
 
-    # 从视频描述中搜索教育相关关键词
+    # Search education keywords in video descriptions
     education_keywords = {
         "专业": [
             "数学",
@@ -318,14 +315,14 @@ def analyze_education(videos: dict, comments: list, target_user: dict) -> dict:
                         }
                     )
 
-    # 从评论中搜索教育相关（仅限目标用户自己的评论，避免他人教育背景干扰）
+    # Search education keywords in comments (target user's comments only for high confidence)
     target_nickname = target_user.get("nickname", "")
     for c in comments:
         text = c.get("text", "")
         commenter = c.get("user", {}).get("nickname", "")
         if not text:
             continue
-        # 只有目标用户自己发的评论才计入高置信度线索
+        # Only target user's own comments count as high confidence
         is_target_self = commenter == target_nickname
         for category, keywords in education_keywords.items():
             for kw in keywords:
@@ -341,11 +338,11 @@ def analyze_education(videos: dict, comments: list, target_user: dict) -> dict:
                         }
                     )
 
-    # 按置信度归类
+    # Sort by confidence
     high_conf = [c for c in clues if c["confidence"] == "high"]
     low_conf = [c for c in clues if c["confidence"] == "low"]
 
-    # 推断结论（仅基于高置信度线索）
+    # Inference conclusions (based on high confidence clues only)
     high_summary = defaultdict(set)
     for clue in high_conf:
         high_summary[clue["category"]].add(clue["keyword"])
@@ -354,13 +351,13 @@ def analyze_education(videos: dict, comments: list, target_user: dict) -> dict:
     if "课程" in high_summary and (
         "常微分" in high_summary["课程"] or "高数" in high_summary["课程"]
     ):
-        conclusions.append("正在学习高等数学/常微分方程，推测为理工科专业")
+        conclusions.append("Studying advanced math/ODE, likely STEM major")
     if "专业" in high_summary and "数学" in high_summary["专业"]:
-        conclusions.append("专业与数学相关")
+        conclusions.append("Major related to mathematics")
     if "阶段" in high_summary and (
         "大学" in high_summary["阶段"] or "上学" in high_summary["阶段"]
     ):
-        conclusions.append("在读大学生")
+        conclusions.append("Currently a university student")
 
     all_summary = defaultdict(set)
     for clue in clues:
@@ -377,10 +374,8 @@ def analyze_education(videos: dict, comments: list, target_user: dict) -> dict:
 
 
 def analyze_locations(videos: dict, comments: list) -> dict:
-    """
-    从作品描述和评论中提取去过/生活过的地点。
-    """
-    # 知名地点关键词
+    """Extract visited/lived locations from post descriptions and comments."""
+    # Known location keywords
     location_db = {
         "成都": ["成都", "春熙路", "IFS", "太古里", "宽窄巷子", "锦里", "新津", "都江堰"],
         "北京": ["北京", "三里屯", "国贸", "王府井", "南锣鼓巷", "颐和园", "天安门"],
@@ -395,7 +390,7 @@ def analyze_locations(videos: dict, comments: list) -> dict:
 
     locations_found = defaultdict(list)
 
-    # 从视频描述中搜索
+    # Search in video descriptions
     for vid, vinfo in videos.items():
         desc = vinfo.get("desc", "")
         for city, keywords in location_db.items():
@@ -427,7 +422,7 @@ def analyze_locations(videos: dict, comments: list) -> dict:
                         }
                     )
 
-    # 统计每个城市出现的次数
+    # Count occurrences per city
     city_counts = {}
     for city, mentions in locations_found.items():
         city_counts[city] = {
@@ -436,7 +431,7 @@ def analyze_locations(videos: dict, comments: list) -> dict:
             "samples": mentions[:3],
         }
 
-    # 排序
+    # Sort
     sorted_cities = sorted(city_counts.items(), key=lambda x: x[1]["count"], reverse=True)
 
     return {
@@ -446,12 +441,10 @@ def analyze_locations(videos: dict, comments: list) -> dict:
 
 
 def analyze_names(comments: list, videos: dict, target_user: dict) -> dict:
-    """
-    提取姓名/昵称线索。
-    """
+    """Extract name/nickname clues."""
     clue_list = []
 
-    # 1. 目标用户的抖音昵称
+    # 1. Target user's Douyin nickname
     nickname = target_user.get("nickname", "")
     if nickname:
         clue_list.append(

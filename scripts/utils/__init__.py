@@ -1,1 +1,1 @@
-"""scripts/utils 工具包"""
+"""scripts/utils utility package."""

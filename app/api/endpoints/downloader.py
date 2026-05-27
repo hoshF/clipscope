@@ -1,7 +1,6 @@
-"""
-视频/图集下载接口
+"""Video/album download endpoints.
 
-基于 HybridCrawler 实现的无水印下载功能。
+Watermark-free download functionality built on HybridCrawler.
 """
 
 import os
@@ -18,7 +17,6 @@ from app.api.models import ResponseModel
 router = APIRouter()
 crawler = HybridCrawler()
 
-# 加载配置
 config_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
     "config.yaml",
@@ -28,10 +26,10 @@ with open(config_path, encoding="utf-8") as f:
 
 
 def _cleanup_file(path: str) -> None:
-    """下载完成后清理临时文件。
+    """Clean up temporary files after download.
 
     Args:
-        path: 要清理的临时文件路径。
+        path: Path to the temporary file to remove.
     """
     try:
         if os.path.exists(path):
@@ -40,32 +38,33 @@ def _cleanup_file(path: str) -> None:
         pass
 
 
-@router.get("/video", summary="下载无水印视频")
+@router.get("/video", summary="Download watermark-free video")
 async def download_video(
     request: Request,
     url: str = Query(
         ...,
         example="https://v.douyin.com/L4FJNR3/",
-        description="抖音/TikTok/Bilibili 视频链接",
+        description="Douyin/TikTok/Bilibili video link",
     ),
 ):
-    """
-    下载指定视频的无水印版本。
+    """Download watermark-free version of a video.
 
-    自动识别平台（抖音/TikTok/B站），返回无水印视频文件。
-    注意：TikTok 视频链接需通过本接口下载，直接访问会 403。
+    Automatically detects the platform (Douyin/TikTok/Bilibili) and returns
+    the watermark-free video file. Note: TikTok direct URLs will 403,
+    use this endpoint to download.
     """
     try:
-        # 解析视频数据
         data = await crawler.hybrid_parsing_single_video(url=url, minimal=True)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"解析视频失败: {e!s}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse video: {e!s}")
 
     if data.get("type") != "video":
-        raise HTTPException(status_code=400, detail="该链接不是视频类型，请使用图集下载接口")
+        raise HTTPException(
+            status_code=400, detail="Link is not a video type, use the album download endpoint"
+        )
 
     video_data = data.get("video_data", {})
-    # 优先使用无水印高清链接
+    # Prefer HQ watermark-free URL
     video_url = (
         video_data.get("nwm_video_url_HQ")
         or video_data.get("nwm_video_url")
@@ -74,20 +73,20 @@ async def download_video(
     )
 
     if not video_url:
-        raise HTTPException(status_code=500, detail="无法获取视频下载链接")
+        raise HTTPException(status_code=500, detail="Failed to get video download URL")
 
-    # 对于 TikTok，视频直链会 403，重定向到下载接口
-    # 但对于可直接访问的链接，直接重定向
+    # TikTok direct URLs return 403, proxy through our server
+    # For directly accessible links, redirect instead
     platform = data.get("platform", "unknown")
     video_id = data.get("video_id", str(uuid.uuid4()))
 
-    # 返回视频信息，前端或客户端可以用 video_url 自行处理
-    # 如果是可直接访问的链接，返回重定向
+    # Return video info; frontend can use video_url directly
+    # If directly accessible, redirect
     if platform == "douyin":
-        # 抖音无水印链接可以直接访问
+        # Douyin watermark-free links are directly accessible
         return RedirectResponse(url=video_url)
     else:
-        # TikTok/B站 通过流式代理下载
+        # TikTok/Bilibili: stream through proxy
         download_dir = config["server"]["download_path"]
         os.makedirs(download_dir, exist_ok=True)
         ext = ".mp4"

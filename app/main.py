@@ -1,8 +1,7 @@
-"""
-Douyin/TikTok/Bilibili 数据爬取 API 服务
+"""Douyin/TikTok/Bilibili Crawler API Service
 
-基于 Douyin_TikTok_Download_API 爬虫库构建的 FastAPI 应用。
-支持抖音、TikTok、Bilibili 视频解析与无水印下载。
+FastAPI application built on the Douyin_TikTok_Download_API crawler library.
+Supports Douyin, TikTok, and Bilibili video/album parsing and watermark-free downloads.
 """
 
 import os
@@ -11,7 +10,6 @@ import sys
 import uvicorn
 import yaml
 
-# ── 将 lib (Douyin_TikTok_Download_API) 加入 Python 路径 ──
 LIB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
@@ -22,14 +20,12 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 
-# ── 加载配置文件 ──
 config_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml"
 )
 with open(config_path, encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
-# ── 创建 FastAPI 应用 ──
 app = FastAPI(
     title=config["app"]["title"],
     description=config["app"]["description"],
@@ -38,7 +34,6 @@ app = FastAPI(
     redoc_url=config["server"]["redoc_url"],
 )
 
-# ── CORS 中间件 ──
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -47,10 +42,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ── 注册路由 ──
 app.include_router(api_router, prefix="/api")
 
-# ── 静态文件（下载目录 & 看板） ──
 download_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "temp"
 )
@@ -62,12 +55,12 @@ os.makedirs(static_dir, exist_ok=True)
 app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
-@app.get("/", summary="服务状态检查")
+@app.get("/", summary="Service status check")
 async def root() -> dict:
-    """返回服务基本信息，包括版本号和文档地址。
+    """Return basic service info including version and documentation URL.
 
     Returns:
-        dict: 包含服务名、版本、文档链接的字典。
+        dict: Service name, version, and docs link.
     """
     return {
         "service": "Douyin/TikTok/Bilibili Crawler API",
@@ -77,20 +70,19 @@ async def root() -> dict:
     }
 
 
-@app.get("/health", summary="健康检查")
+@app.get("/health", summary="Health check")
 async def health_check() -> dict:
-    """健康检查接口，用于监控服务是否正常运行。
+    """Health check endpoint for monitoring service availability.
 
     Returns:
-        dict: {"status": "ok"}。
+        dict: {"status": "ok"}.
     """
     return {"status": "ok"}
 
 
-# ── 启动入口 ──
 if __name__ == "__main__":
     host = config["server"]["host"]
     port = config["server"]["port"]
-    print(f"🚀 服务启动: http://{host}:{port}")
-    print(f"📖 API 文档: http://{host}:{port}{config['server']['docs_url']}")
+    print(f"🚀 Server running: http://{host}:{port}")
+    print(f"📖 API docs: http://{host}:{port}{config['server']['docs_url']}")
     uvicorn.run("app.main:app", host=host, port=port, reload=True)

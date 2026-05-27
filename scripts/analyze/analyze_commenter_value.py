@@ -1,27 +1,26 @@
-"""
-评论者价值探测工具
+"""Commenter value assessment tool.
 
-分析目标用户的活跃评论者，探测其用户空间：
-  - 粉丝数、作品数、获赞数
-  - 近期作品评论热度
-  - 综合评分：判断是否值得数据爬取
+Analyzes active commenters of a target user and probes their profiles:
+  - Followers, posts, total likes
+  - Recent comment engagement on their own posts
+  - Composite score: determines if they're worth crawling
 
-使用方式：
-python scripts/analyze/analyze_commenter_value.py <sec_user_id_or_dir> [--top N]
+Usage:
+    python scripts/analyze/analyze_commenter_value.py <sec_user_id_or_dir> [--top N]
 
-示例：
-    # 分析 Top 20 活跃评论者
+Example:
+    # Analyze Top 20 active commenters
     python scripts/analyze/analyze_commenter_value.py MS4wLjABAAAA...
-    # 分析 Top 50
+    # Analyze Top 50
     python scripts/analyze/analyze_commenter_value.py MS4wLjABAAAA... --top 50
-    # 指定数据目录
+    # Specify data directory
     python scripts/analyze/analyze_commenter_value.py data/comments/user123/
 
-输出：
+Output:
     data/comments/<sec_user_id>/
         └── commenters/
-            ├── commenter_report.json     探测结果
-            └── report.txt                文本报告
+            ├── commenter_report.json     Assessment results
+            └── report.txt                Text report
 """
 
 import asyncio
@@ -40,7 +39,7 @@ from utils import data_utils
 
 
 def load_comments(sec_user_id_or_dir: str) -> tuple:
-    """加载评论数据"""
+    """Load comment data."""
     if os.path.isdir(sec_user_id_or_dir):
         data_dir = sec_user_id_or_dir
     else:
@@ -58,7 +57,7 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
     meta_path = os.path.join(data_dir, "_meta.json")
 
     if not os.path.exists(comments_path):
-        print(f"❌ 未找到评论数据: {comments_path}")
+        print(f"❌ Comment data not found: {comments_path}")
         sys.exit(1)
 
     with open(comments_path, encoding="utf-8") as f:
@@ -77,9 +76,9 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
 async def probe_commenter(
     crawler: DouyinWebCrawler, sec_uid: str, nickname: str, comment_count: int
 ) -> dict:
-    """
-    探测一个评论者的用户空间。
-    返回结构化信息，异常时返回基础数据。
+    """Probe a commenter's user space.
+
+    Returns structured info, or basic data on error.
     """
     result = {
         "nickname": nickname,
@@ -95,7 +94,7 @@ async def probe_commenter(
         "error": None,
     }
 
-    # 1. 获取用户个人信息
+    # 1. Get user profile
     try:
         profile = await crawler.handler_user_profile(sec_uid)
         user_data = (

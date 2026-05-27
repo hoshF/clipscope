@@ -1,12 +1,11 @@
-"""
-数据分析共享工具函数
+"""Shared data analysis utility functions.
 
-为 analyze 系列脚本提供：
-  - PROJECT_ROOT               — 项目根目录常量
-  - find_comment_dir()         — 在 data/comments/ 中按 sec_uid 查找目录
-  - analyze_ip_distribution()  — 评论 IP 归属地分布分析
-  - analyze_commenter_fan_tiers() — 评论者粉丝分层（KOL/核心/普通）
-  - analyze_top_commenters()   — 高频评论者排名
+Provides for the analyze scripts:
+  - PROJECT_ROOT               — Project root directory constant
+  - find_comment_dir()         — Find comment directory by sec_uid in data/comments/
+  - analyze_ip_distribution()  — IP location distribution analysis
+  - analyze_commenter_fan_tiers() — Commenter fan tier classification (KOL/core/regular)
+  - analyze_top_commenters()   — Top commenters ranking
 """
 
 import json
@@ -14,10 +13,9 @@ import os
 import sys
 from collections import Counter
 
-# ── 项目根目录（所有脚本共用） ──
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# ── 自动添加 import 路径（仅首次导入时生效） ──
+
 _SCRIPTS_PATH = os.path.join(PROJECT_ROOT, "scripts")
 _LIB_PATH = os.path.join(PROJECT_ROOT, "lib")
 for _p in (_SCRIPTS_PATH, _LIB_PATH):
@@ -26,16 +24,16 @@ for _p in (_SCRIPTS_PATH, _LIB_PATH):
 
 
 def find_comment_dir(sec_user_id: str) -> str | None:
-    """在 data/comments/ 中搜索匹配 sec_uid 的目录。
+    """Find the comment directory matching a sec_uid in data/comments/.
 
-    遍历 data/comments/ 下每个子目录，检查 _meta.json 中的
-    target_user.sec_uid 是否与参数匹配。
+    Iterates through each subdirectory under data/comments/ and checks
+    if _meta.json's target_user.sec_uid matches the parameter.
 
     Args:
-        sec_user_id: 目标用户的 sec_uid。
+        sec_user_id: The target user's sec_uid.
 
     Returns:
-        匹配到的目录绝对路径，未找到则返回 None。
+        Absolute path to the matching directory, or None if not found.
     """
     comments_root = os.path.join(PROJECT_ROOT, "data", "comments")
     if not os.path.isdir(comments_root):
@@ -54,7 +52,7 @@ def find_comment_dir(sec_user_id: str) -> str | None:
 
 
 # ═══════════════════════════════════════════════════════════════════
-# 共享分析函数 — 消除 analyze 脚本间的功能重叠
+# Shared analysis functions — eliminates code duplication across analyze scripts
 # ═══════════════════════════════════════════════════════════════════
 
 OVERSEAS_KEYWORDS = [
@@ -84,16 +82,16 @@ OVERSEAS_KEYWORDS = [
 
 
 def analyze_ip_distribution(comments: list) -> dict:
-    """分析评论 IP 归属地分布。
+    """Analyze IP location distribution from comments.
 
-    统计每条评论的 ip_label 或 position 字段，按地区汇总。
-    结果供 fan_portrait 的"地域分布"和 identity_mining 的"出生地推断"复用。
+    Aggregates ip_label or position fields from each comment by region.
+    Results are reused by fan_portrait (geo distribution) and identity_mining (birthplace inference).
 
     Args:
-        comments: 评论列表，每条评论需包含 ip_label 或 position 字段。
+        comments: List of comments, each must have ip_label or position field.
 
     Returns:
-        包含 domestic（国内）、overseas（海外）和 top_regions（Top 地区）的分布字典。
+        Distribution dict with domestic, overseas, and top_regions.
     """
     ip_counter = Counter()
     for c in comments:

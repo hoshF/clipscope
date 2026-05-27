@@ -1,8 +1,7 @@
-"""
-视频/图集数据解析接口
+"""Video/album data parsing endpoints.
 
-基于 HybridCrawler 实现的简洁解析 API。
-支持抖音、TikTok、Bilibili 的单条/批量解析。
+Clean parsing API built on HybridCrawler.
+Supports single and batch parsing for Douyin, TikTok, and Bilibili.
 """
 
 import asyncio
@@ -18,57 +17,56 @@ crawler = HybridCrawler()
 
 
 def extract_urls(text: str) -> list[str]:
-    """从文本中提取所有可能的视频/分享链接。
+    """Extract all possible video/sharing URLs from text.
 
     Args:
-        text: 包含分享链接的原始文本。
+        text: Raw text that may contain sharing links.
 
     Returns:
-        从文本中提取到的 URL 列表，未匹配到则返回空列表。
+        List of extracted URLs, or empty list if none found.
     """
     url_pattern = re.compile(r"https?://[^\s,，、\n\r]+")
     return url_pattern.findall(text)
 
 
-@router.get("/video", summary="解析单个视频/图集")
+@router.get("/video", summary="Parse single video/album")
 async def parse_video(
     request: Request,
     url: str = Query(
         ...,
         example="https://v.douyin.com/L4FJNR3/",
-        description="抖音/TikTok/Bilibili 视频或图集链接",
+        description="Douyin/TikTok/Bilibili video or album link",
     ),
     minimal: bool = Query(
         True,
-        description="是否只返回精简数据（True=精简, False=完整）",
+        description="Return minimal data (True=minimal, False=full)",
     ),
 ):
-    """
-    解析单个视频或图集的数据。
+    """Parse a single video or album.
 
-    - **url**: 抖音/TikTok/Bilibili 分享链接
-    - **minimal**: 为 True 时只返回关键字段，为 False 时返回原始完整数据
+    - **url**: Douyin/TikTok/Bilibili sharing link
+    - **minimal**: Returns only key fields when True, full data when False
 
-    **支持格式：**
-    - 抖音: `https://v.douyin.com/xxx/`、`https://www.douyin.com/video/xxx`
-    - TikTok: `https://www.tiktok.com/@user/video/xxx`、`https://www.tiktok.com/t/xxx/`
-    - B站: `https://www.bilibili.com/video/BVxxx`、`https://b23.tv/xxx`
+    **Supported formats:**
+    - Douyin: `https://v.douyin.com/xxx/`, `https://www.douyin.com/video/xxx`
+    - TikTok: `https://www.tiktok.com/@user/video/xxx`, `https://www.tiktok.com/t/xxx/`
+    - Bilibili: `https://www.bilibili.com/video/BVxxx`, `https://b23.tv/xxx`
     """
     try:
         data = await crawler.hybrid_parsing_single_video(url=url, minimal=minimal)
-        return ResponseModel(code=200, message="解析成功", data=data)
+        return ResponseModel(code=200, message="Parsed successfully", data=data)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=ErrorResponse(
-                code=500, message=f"解析失败: {e!s}", detail={"url": url}
+                code=500, message=f"Parse failed: {e!s}", detail={"url": url}
             ).model_dump(),
         )
 
 
-@router.post("/batch", summary="批量解析多个视频/图集")
+@router.post("/batch", summary="Batch parse multiple videos/albums")
 async def parse_batch(
     request: Request,
     urls: list[str] = Query(
@@ -77,28 +75,27 @@ async def parse_batch(
             "https://v.douyin.com/L4FJNR3/",
             "https://www.tiktok.com/@taylorswift/video/7359655005701311786",
         ],
-        description="视频链接列表，支持抖音/TikTok/B站混合",
+        description="List of video URLs, supports Douyin/TikTok/Bilibili mixed",
     ),
     minimal: bool = Query(
         True,
-        description="是否只返回精简数据",
+        description="Return minimal data",
     ),
     max_concurrent: int = Query(
         5,
-        description="最大并发数",
+        description="Maximum concurrent requests",
         ge=1,
         le=20,
     ),
 ):
-    """
-    批量解析多个视频/图集（支持混合平台）。
+    """Batch parse multiple videos/albums (supports mixed platforms).
 
-    - **urls**: 视频链接列表（最多 30 个）
-    - **minimal**: 为 True 时只返回关键字段
-    - **max_concurrent**: 最大并发请求数（1-20）
+    - **urls**: List of video URLs (max 30)
+    - **minimal**: Return minimal data when True
+    - **max_concurrent**: Maximum concurrent requests (1-20)
     """
     if len(urls) > 30:
-        raise HTTPException(status_code=400, detail="一次最多解析 30 个链接")
+        raise HTTPException(status_code=400, detail="Maximum 30 URLs per batch")
 
     semaphore = asyncio.Semaphore(max_concurrent)
 
@@ -118,7 +115,7 @@ async def parse_batch(
 
     return ResponseModel(
         code=200,
-        message=f"批量解析完成: 成功 {success_count}, 失败 {failed_count}",
+        message=f"Batch parse complete: {success_count} succeeded, {failed_count} failed",
         data={
             "total": len(results),
             "success": success_count,
@@ -128,22 +125,21 @@ async def parse_batch(
     )
 
 
-@router.get("/extract", summary="从文本中提取链接并解析")
+@router.get("/extract", summary="Extract and parse links from text")
 async def parse_from_text(
     request: Request,
     text: str = Query(
         ...,
         example="7.43 pda:/ 让你记住我 https://v.douyin.com/L5pbfdP/ 复制打开抖音",
-        description="包含分享链接的文本内容（支持多条混合）",
+        description="Text containing sharing links (supports multiple mixed)",
     ),
     minimal: bool = Query(True),
     max_concurrent: int = Query(5, ge=1, le=20),
 ):
-    """
-    从文本中自动提取所有链接并批量解析。
+    """Auto-extract all links from text and parse them in batch.
 
-    支持从抖音分享口令、TikTok 分享文本中提取链接，
-    也支持直接粘贴多条链接混合解析。
+    Supports extracting links from Douyin share text, TikTok share text,
+    or directly pasting multiple links.
     """
     extracted_urls = extract_urls(text)
     if not extracted_urls:

@@ -12,17 +12,17 @@
 
 ```python
 def function_name(param1: str, param2: int) -> bool:
-    """简短描述（一句话，句号结尾）。
+    """Brief description (one sentence, ending with period).
 
     Args:
-        param1: 参数1的描述。
-        param2: 参数2的描述。
+        param1: Description of param1.
+        param2: Description of param2.
 
     Returns:
-        返回值的描述。
+        Description of the return value.
 
     Raises:
-        ValueError: 触发异常的条件描述。
+        ValueError: Condition under which this exception is raised.
     """
 ```
 
@@ -36,157 +36,164 @@ def function_name(param1: str, param2: int) -> bool:
 | 模块/文件头部 | ✅ 必须 |
 | FastAPI 路由 | ✅ 必须（同时用于生成 API 文档） |
 
-### 模块头部 docstring
+### Module-level docstring
 
 ```python
-"""
-本模块功能的一句话描述。
+"""One-line description of module functionality.
 
-详细说明（可选）：模块的职责、依赖关系、使用注意事项等。
+Extended description (optional): module responsibilities,
+dependencies, usage notes, etc.
 """
 ```
 
-### 类 docstring
+### Class docstring
 
 ```python
 class CrawlerClient:
-    """爬虫客户端，管理 HTTP 会话和 Cookie。
+    """Crawler client managing HTTP sessions and cookies.
 
-    负责维护请求会话、自动刷新令牌、提供统一的请求接口。
-    所有爬虫操作应通过此客户端进行。
+    Maintains request sessions, auto-refreshes tokens,
+    and provides a unified request interface.
+    All crawler operations should use this client.
 
     Attributes:
-        session: HTTPX 异步客户端实例。
-        base_url: 目标平台的基础 URL。
+        session: HTTPX async client instance.
+        base_url: Base URL of the target platform.
     """
 ```
 
 ---
 
-## 2. 📌 行内注释规范
+## 2. 📌 Inline Comment Rules
 
-### 合适使用行内注释
+### Good inline comments
 
 ```python
-# ✅ 好的：解释复杂的业务逻辑
-# 使用 SM3 哈希对参数排序后生成签名，
-# 抖音服务端会用同样的方式校验请求合法性。
+# ✅ Good: explains complex business logic
+# SM3 hash is used to sort params and generate a signature.
+# Douyin's server verifies request authenticity the same way.
 sign = generate_abogus(params)
 
-# ✅ 好的：说明一个"为什么"而非"是什么"
-time.sleep(1.5)  # 主动降速，避免触发频率限制
+# ✅ Good: explains "why", not "what"
+time.sleep(1.5)  # Rate limit: avoid triggering frequency control
 
-# ✅ 好的：标记临时或待完善代码
-# TODO: 此处需要处理分页，目前只取第一页
-# FIXME: 偶发空指针，需要在调用前检查 None
-# HACK: 上游 API 返回的字段名不规范，先 hardcode 映射
+# ✅ Good: marks temporary or incomplete code
+# TODO: handle pagination - currently only fetches first page
+# FIXME: occasional null pointer, check for None before calling
+# HACK: upstream API returns inconsistent field names, hardcode mapping for now
 ```
 
-### 避免的行内注释
+### Bad inline comments
 
 ```python
-# ❌ 坏的：陈述显而易见的事
-x = x + 1  # 将 x 加 1
+# ❌ Bad: states the obvious
+x = x + 1  # Increment x by 1
 
-# ❌ 坏的：注释与代码不符（过期注释）
+# ❌ Bad: outdated or misleading comment
 ```
 
-### 语言选择
+### Language
 
-- **docstring**: 保持与项目当前语言一致（中/英皆可，建议与 README 语言对应）
-- **行内注释**: 用**中文**（目标用户为中文使用者）
-- **关键词标签**: 使用英文（`TODO`, `FIXME`, `HACK`, `NOTE`）
+- **All comments (docstrings + inline)**: **English**
+- **Keywords**: English (`TODO`, `FIXME`, `HACK`, `NOTE`, `XXX`)
 
-### 可视化分隔线
+### Visual separators
 
-项目特有的风格，用于区分模块逻辑块：
+Project-specific style for separating logical blocks:
 
 ```python
-# ── 分隔线（短） ──
-# ═══════════════════════════════════════════════════════════════════ 分隔线（长）
+# ── Separator (short) ──
+# ═══════════════════════════════════════════════════════════════════ Separator (long)
 ```
 
-分隔线应与上下文空行隔开，不与代码行直接相邻。
+Separators should have blank lines above and below, not adjacent to code.
 
 ---
 
-## 3. 🏷️ 标签注释规范
+## 3. 🏷️ Tag Comment Standards
 
-在注释中使用以下标准标签：
+Use these standard tags in comments:
 
-| 标签 | 含义 | 用法 |
+| Tag | Meaning | Usage |
 |---|---|---|
-| `TODO` | 待办事项 | `# TODO: 需要处理边界情况` |
-| `FIXME` | 已知问题 | `# FIXME: 此方法在大文件下 OOM` |
-| `HACK` | 临时解决方案 | `# HACK: 绕过后端校验，后续需重构` |
-| `NOTE` | 值得注意 | `# NOTE: 此 API 有频率限制 10 req/s` |
-| `XXX` | 危险/易错 | `# XXX: 此处修改会影响下游所有调用方` |
+| `TODO` | To be done | `# TODO: handle edge case for empty input` |
+| `FIXME` | Known issue | `# FIXME: this method OOMs on large files` |
+| `HACK` | Temporary workaround | `# HACK: bypass server-side validation, needs refactor` |
+| `NOTE` | Worth noting | `# NOTE: this API has a 10 req/s rate limit` |
+| `XXX` | Dangerous / error-prone | `# XXX: modifying this affects all downstream callers` |
 
 ---
 
-## 4. 🔤 类型注解规范
+## 4. 🔤 Type Annotation Rules
 
 ```python
-# ✅ 优先使用 Python 3.10+ 联合类型语法
+# ✅ Prefer Python 3.10+ union syntax
 def get_user(name: str | None) -> User | None: ...
 
-# ✅ 复杂类型使用 typing 模块
+# ✅ Use typing module for complex types
 from collections.abc import Sequence
 
 def process(items: Sequence[str]) -> list[int]: ...
 
-# ❌ 避免不必要的类型注释
-x: int = 5  # 没必要，字面量已表明类型
+# ❌ Avoid unnecessary type annotations
+x: int = 5  # Unnecessary: literal already indicates type
 ```
 
-### 何时需要类型注解
+### When type annotations are required
 
-| 场景 | 要求 |
+| Scenario | Requirement |
 |---|---|
-| 函数参数 | ✅ 必须 |
-| 函数返回值 | ✅ 必须（`-> None` 除外可省略） |
-| 模块/类变量 | ✅ 建议 |
-| 局部变量 | ⚠️ 复杂类型建议标注 |
-| `Any` 类型 | ⚠️ 尽量避免，或用 `# type: ignore[arg-type]` 替代 |
+| Function parameters | ✅ Required |
+| Return values | ✅ Required (optional for `-> None`) |
+| Module/class variables | ✅ Recommended |
+| Local variables | ⚠️ Recommended for complex types |
+| `Any` type | ⚠️ Avoid when possible; use `# type: ignore[arg-type]` instead |
 
 ---
 
-## 5. 🔧 工具配置
+## 5. 🔧 Tool Configuration
 
-### Ruff（代码检查 + 格式化）
+### Ruff (linter + formatter)
 
-配置在 `pyproject.toml` 中，集成了：
+Configured in `pyproject.toml`:
 
-- `E/W` — pycodestyle 错误/警告
-- `F` — pyflakes 逻辑错误
-- `I` — isort 导入排序
-- `N` — pep8-naming 命名规范
-- `D` — pydocstyle docstring 检查（Google 风格）
-- `UP` — pyupgrade 现代语法升级
-- `RUF100` — 无效的 `# noqa` 检查
+- `E/W` — pycodestyle errors/warnings
+- `F` — pyflakes logic errors
+- `I` — isort import sorting
+- `N` — pep8-naming conventions
+- `D` — pydocstyle docstring checking (Google style)
+- `UP` — pyupgrade modern syntax
+- `RUF` — ruff-specific rules (Chinese punctuation in comments ignored)
+
+**Per-file exceptions:**
+- `app/api/endpoints/*.py` — relaxed docstring requirements for FastAPI routes
+- `scripts/utils/*.py` — no docstring requirement for utility scripts
+- `app/main.py`, `download_user_videos.py`, `scripts/collect/*.py`, `scripts/download/*.py` — E402 (import order) allowed for `sys.path` manipulation
 
 ```bash
-# 检查代码风格
+# Check code style
 uv run ruff check .
 
-# 自动修复
+# Auto-fix
 uv run ruff check --fix .
 
-# 格式化代码
+# Format code
 uv run ruff format .
 ```
 
-### EditorConfig（编辑器统一配置）
+### EditorConfig
 
-配置在 `.editorconfig` 中，确保不同编辑器缩进一致。
+Configured in `.editorconfig` to ensure consistent indentation across editors.
 
 ---
 
-## 6. ✅ 提交前检查清单
+## 6. ✅ Pre-commit Checklist
 
-- [ ] `ruff check .` 无错误
-- [ ] `ruff format .` 格式正确
-- [ ] 新增的公开函数/类有 docstring
-- [ ] 类型注解完整
-- [ ] 无死代码注释（已废弃的代码块应删除，而非注释掉）
-- [ ] `TODO`/`FIXME` 是有意留下的（而非忘记实现的）
+- [ ] `ruff check .` passes (no errors)
+- [ ] `ruff format .` is clean
+- [ ] New public functions/classes have Google-style docstrings
+- [ ] Type annotations are complete
+- [ ] No dead code comments (commented-out code blocks should be deleted, not left in)
+- [ ] `TODO`/`FIXME` tags are intentional (not forgotten implementations)
+- [ ] All comments are in **English**
+- [ ] No Chinese text remains in code (data values like category names are excepted)

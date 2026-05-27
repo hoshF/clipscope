@@ -1,13 +1,12 @@
-"""
-统一重命名 data/ 下的用户目录为「昵称_sec_user_id[:8]」格式
+"""Rename user directories under data/ to "nickname_sec_user_id[:8]" format.
 
-支持 data/downloads/ 和 data/comments/ 两种目录结构。
+Supports both data/downloads/ and data/comments/ directory structures.
 
-用法:
-    python scripts/download/rename_user_dirs.py                  # 重命名 downloads（默认）
-    python scripts/download/rename_user_dirs.py --target comments # 重命名 comments
-    python scripts/download/rename_user_dirs.py --target all     # 两个都重命名
-    python scripts/download/rename_user_dirs.py --dry-run        # 仅预览
+Usage:
+    python scripts/download/rename_user_dirs.py                  # Rename downloads (default)
+    python scripts/download/rename_user_dirs.py --target comments # Rename comments
+    python scripts/download/rename_user_dirs.py --target all     # Rename both
+    python scripts/download/rename_user_dirs.py --dry-run        # Preview only
 """
 
 import asyncio
@@ -32,12 +31,17 @@ COMMENTS_DIR = os.path.join(ROOT, "data", "comments")
 
 
 def sanitize_dirname(name: str, max_len: int = 40) -> str:
-    """清理字符串，使其可用作目录名"""
-    # 替换非法字符
+    """Sanitize a string for use as a directory name.
+
+    Args:
+        name: Raw string to sanitize.
+        max_len: Maximum length of the result.
+
+    Returns:
+        Sanitized string safe for use as a directory name.
+    """
     name = re.sub(r'[\\/:*?"<>|]', "", name)
-    # 替换空白字符
     name = re.sub(r"\s+", "_", name.strip())
-    # 去掉首尾的点号和空格
     name = name.strip(". ")
     if not name:
         name = "unknown"
@@ -45,24 +49,31 @@ def sanitize_dirname(name: str, max_len: int = 40) -> str:
 
 
 async def get_nickname(sec_user_id: str) -> str | None:
-    """通过 API 获取用户昵称"""
+    """Fetch user nickname via the crawler API.
+
+    Args:
+        sec_user_id: The user's sec_user_id.
+
+    Returns:
+        Nickname string, or None if lookup failed.
+    """
     try:
         crawler = DouyinWebCrawler()
         resp = await crawler.handler_user_profile(sec_user_id)
         user = resp.get("user", {})
         return user.get("nickname") or user.get("unique_id") or None
     except Exception as e:
-        print(f"  ⚠️  获取用户信息失败: {e}")
+        print(f"  ⚠️  Failed to fetch user info: {e}")
         return None
 
 
 def _get_sec_user_id_from_meta(meta: dict) -> str:
-    """从 _meta.json 中提取 sec_user_id，兼容 downloads 和 comments 两种格式"""
+    """Extract sec_user_id from _meta.json, compatible with both downloads and comments formats."""
     return meta.get("sec_user_id", "") or meta.get("target_user", {}).get("sec_uid", "") or ""
 
 
 def _get_nickname_from_meta(meta: dict) -> str:
-    """从 _meta.json 中提取昵称，兼容两种格式"""
+    """Extract nickname from _meta.json, compatible with both formats."""
     return meta.get("nickname", "") or meta.get("target_user", {}).get("nickname", "") or ""
 
 
@@ -72,19 +83,25 @@ async def rename_dir(
     target_label: str,
     use_api: bool = True,
 ) -> dict:
-    """
-    重命名 base_dir 下的所有用户目录。
+    """Rename all user directories under base_dir.
 
-    use_api=True: 通过爬虫 API 获取最新昵称（用于 downloads）
-    use_api=False: 从 _meta.json 中直接读取昵称（用于 comments）
+    Args:
+        base_dir: Base directory containing user directories.
+        dry_run: If True, only preview changes without renaming.
+        target_label: Label for UI messages (e.g. "downloads").
+        use_api: If True, fetch latest nickname via crawler API (for downloads);
+                 if False, read nickname from _meta.json (for comments).
+
+    Returns:
+        Dict with count of renamed, dry_run status, etc.
     """
     stats = {"renamed": 0, "skipped": 0, "failed": 0}
 
     if not os.path.exists(base_dir):
-        print(f"❌ {target_label}/ 目录不存在")
+        print(f"❌ Directory {target_label}/ does not exist")
         return stats
 
-    # 收集所有用户目录
+    # Collect all user directories
     user_dirs = []
     for item in os.listdir(base_dir):
         item_path = os.path.join(base_dir, item)
@@ -93,12 +110,12 @@ async def rename_dir(
             user_dirs.append(item)
 
     if not user_dirs:
-        print(f"⚠️  未找到 {target_label} 用户目录")
+        print(f"⚠️  No {target_label} user directories found")
         return stats
 
-    print(f"\n📂 [ {target_label}/ ] 找到 {len(user_dirs)} 个用户目录")
+    print(f"\n📂 [ {target_label}/ ] Found {len(user_dirs)} user directories")
 
-    # 先检测并合并重复目录
+    # Detect and merge duplicate directories first
     id_to_dirs = {}
     for d in user_dirs:
         try:
@@ -118,7 +135,7 @@ async def rename_dir(
     def merge_dirs(primary: str, other: str):
         primary_path = os.path.join(base_dir, primary)
         other_path = os.path.join(base_dir, other)
-        print(f"  合并 {other} -> {primary}")
+        print(f"  Merge {other} -> {primary}")
         for name in os.listdir(other_path):
             if name == "_meta.json":
                 continue
@@ -198,7 +215,7 @@ async def rename_dir(
     for sid, dirs in id_to_dirs.items():
         if not sid or len(dirs) <= 1:
             continue
-        print(f"⚠️  发现重复目录 (sec_user_id={sid})：{dirs}")
+        print(f"⚠️  Duplicate directories found (sec_user_id={sid}): {dirs}")
         best = None
         best_count = -1
         for d in dirs:
@@ -214,7 +231,7 @@ async def rename_dir(
             if d != primary:
                 merge_dirs(primary, d)
 
-    # 重新读取目录列表
+    # Re-read directory list
     user_dirs = []
     for item in os.listdir(base_dir):
         item_path = os.path.join(base_dir, item)
@@ -231,7 +248,7 @@ async def rename_dir(
 
         sec_user_id = _get_sec_user_id_from_meta(meta)
         if not sec_user_id:
-            print(f"  ⏭️  {old_name}: 无 sec_user_id，跳过")
+            print(f"  ⏭️  {old_name}: no sec_user_id, skipping")
             stats["skipped"] += 1
             continue
 
@@ -240,14 +257,14 @@ async def rename_dir(
 
         print(f"🔍  [{target_label}] {old_name}", end="")
 
-        # 获取昵称
+        # Get nickname
         if use_api:
             nickname = await get_nickname(sec_user_id)
         else:
             nickname = existing_nickname
 
         if not nickname:
-            print("  ❌ 无法获取昵称")
+            print("  ❌ Failed to get nickname")
             stats["failed"] += 1
             continue
 
@@ -255,7 +272,7 @@ async def rename_dir(
         suffix = sec_user_id[:8]
         new_name = f"{safe_nickname}_{suffix}"
 
-        # 处理昵称变更
+        # Handle nickname change
         old_nicknames_for_dir = []
         if existing_nickname and existing_nickname != nickname:
             old_nicknames_for_dir.append(existing_nickname)
@@ -271,22 +288,22 @@ async def rename_dir(
 
         new_path = os.path.join(base_dir, new_name)
 
-        # 检查是否已是最新
+        # Check if already current
         if old_path == new_path or os.path.basename(old_path) == new_name:
-            print(f"  ✅ 已是最新「{nickname}」")
+            print(f"  ✅ Already up-to-date: {nickname}")
             stats["skipped"] += 1
             continue
 
-        # 目标冲突
+        # Target conflict
         if os.path.exists(new_path):
-            print("  ⚠️  目标已存在，追加时间戳")
+            print("  ⚠️  Target exists, appending timestamp")
             new_name = f"{new_name}_{int(time.time())}"
             new_path = os.path.join(base_dir, new_name)
 
         print(f"  →  「{nickname}」")
 
         if dry_run:
-            print(f"    将重命名为: {new_name}")
+            print(f"    Will rename to: {new_name}")
             stats["renamed"] += 1
             continue
 

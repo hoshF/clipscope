@@ -1,18 +1,17 @@
-"""
-下载同步工具 — 检查已有下载目录，自动补全新视频
+"""Download sync tool - check existing downloads and fetch new videos.
 
-用法:
-    python scripts/sync_downloads.py                    # 同步所有用户
-    python scripts/sync_downloads.py --dry-run           # 仅检查，不下载
-    python scripts/sync_downloads.py 下载目录名          # 仅同步指定用户
-    python scripts/sync_downloads.py --deleted           # 同步后显示已删除的作品
+Usage:
+    python scripts/sync_downloads.py                    # Sync all users
+    python scripts/sync_downloads.py --dry-run           # Check only, no download
+    python scripts/sync_downloads.py <dir_name>          # Sync specific user
+    python scripts/sync_downloads.py --deleted           # Show deleted posts after sync
 
-说明:
-    脚本会扫描 downloads/ 下的每个用户目录，
-    读取 _meta.json 获取用户信息，
-    然后对比本地已有文件和远程视频列表：
-      - 只下载新增的视频/图集
-      - 标记已被作者删除/隐藏的作品
+Description:
+    Scans each user directory under downloads/,
+    reads _meta.json for user info,
+    then compares local files with the remote video list:
+      - Downloads only new videos/albums
+      - Marks posts deleted/hidden by the author
 """
 
 import asyncio
@@ -22,7 +21,6 @@ import re
 import sys
 import time
 
-# ── 将 lib 加入 Python 路径 ──
 LIB_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib"
 )
@@ -40,10 +38,10 @@ LOG_FILE = os.path.join(ROOT, "data", "tracking", "sync_log.jsonl")
 
 
 def append_log(entry: dict) -> None:
-    """追加一条同步日志到 sync_log.jsonl。
+    """Append a sync log entry to sync_log.jsonl.
 
     Args:
-        entry: 日志条目字典，会自动补充 _timestamp 和 _date 字段。
+        entry: Log entry dict; _timestamp and _date fields are auto-added.
     """
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     entry["_timestamp"] = time.time()
@@ -53,16 +51,16 @@ def append_log(entry: dict) -> None:
 
 
 def get_existing_ids(directory: str) -> dict:
-    """扫描本地下载目录，返回已存在文件的索引。
+    """Scan local download directory, return index of existing files.
 
-    解析文件名中的 aweme_id（19位数字）和序号前缀。
+    Parses aweme_id (19-digit number) and sequence prefix from filenames.
 
     Args:
-        directory: 用户下载目录路径。
+        directory: User download directory path.
 
     Returns:
-        {aweme_id: (filename, is_image, seq)} 字典，
-        其中 is_image 表示是否为图集，seq 为序号前缀。
+        {aweme_id: (filename, is_image, seq)} dict,
+        where is_image indicates album, seq is the sequence prefix.
     """
     existing = {}
     if not os.path.exists(directory):
@@ -70,14 +68,14 @@ def get_existing_ids(directory: str) -> dict:
     for name in os.listdir(directory):
         if name == "_meta.json":
             continue
-        # 提取序号
+        # Extract sequence number
         seq_match = re.match(r"(\d+)", name)
         seq = seq_match.group(1) if seq_match else "???"
-        # 视频文件: 001_7625870161799047537_描述.mp4
+        # Video file: 001_7625870161799047537_desc.mp4
         match = re.search(r"_(\d{19})_", name)
         aweme_id = match.group(1) if match else None
         if not aweme_id:
-            # 图集目录: 002_7639283934052336485_描述/
+            # Album directory: 002_7639283934052336485_desc/
             match = re.search(r"(\d{19})", name)
             if match:
                 aweme_id = match.group(1)
@@ -88,21 +86,21 @@ def get_existing_ids(directory: str) -> dict:
 
 
 async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
-    """同步单个用户的视频/图集更新。
+    """Sync a single user's videos/albums for updates.
 
-    对比本地已下载的 aweme_id 与用户主页的最新作品列表，
-    只下载新增内容，支持去重和断点续传。
+    Compares locally downloaded aweme_ids with the user's latest post list,
+    downloads only new content, supports dedup and resume.
 
     Args:
-        meta_path: 用户 _meta.json 文件路径。
-        dry_run: 为 True 时仅预览变更，不实际下载。
+        meta_path: Path to user's _meta.json file.
+        dry_run: If True, only preview changes without downloading.
 
     Returns:
-        包含 new_videos、new_images、failed、skipped、deleted 计数的字典。
+        Dict with new_videos, new_images, failed, skipped, deleted counts.
     """
     result = {"new_videos": 0, "new_images": 0, "failed": 0, "skipped": 0, "deleted": 0}
 
-    # 读取元数据
+    # Read metadata
     with open(meta_path) as f:
         meta = json.load(f)
 
@@ -112,26 +110,26 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
     nickname = meta.get("nickname", "")
 
     if not sec_user_id:
-        print("  ⚠️  缺少 sec_user_id，跳过")
+        print("  ⚠️  Missing sec_user_id, skipping")
         return result
 
     display_name = nickname or sec_user_id[:20]
     print(f"\n{'=' * 50}")
     print(f"👤 {display_name}")
     print(f"   URL: {user_url}")
-    print(f"   目录: {user_dir}")
+    print(f"   Dir: {user_dir}")
 
-    # 获取已下载的 ID（返回 dict: {aweme_id: (filename, is_image)}）
+    # Get already downloaded IDs
     existing = get_existing_ids(user_dir)
     existing_ids = set(existing.keys())
-    print(f"   本地已有: {len(existing_ids)} 个作品")
+    print(f"   Local: {len(existing_ids)} posts")
 
-    # 初始化爬虫
+    # Initialize crawler
     douyin_crawler = DouyinWebCrawler()
     hybrid_crawler = HybridCrawler()
 
-    # 获取远程视频列表
-    print("   📋 正在获取远程视频列表...")
+    # Get remote video list
+    print("   📋 Fetching remote video list...")
     all_videos = []
     max_cursor = 0
     has_more = True
@@ -152,16 +150,16 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
             if not aweme_list:
                 break
         except Exception as e:
-            print(f"   ❌ 获取第 {page} 页失败: {e}")
+            print(f"   ❌ Failed to fetch page {page}: {e}")
             break
 
     remote_ids = {v.get("aweme_id") for v in all_videos if v.get("aweme_id")}
-    print(f"   远程共有: {len(remote_ids)} 个作品")
+    print(f"   Remote: {len(remote_ids)} posts")
 
-    # ── 检测已被作者删除/隐藏的作品 ──
+    # Detect posts deleted/hidden by author
     deleted_ids = existing_ids - remote_ids
     if deleted_ids:
-        print(f"\n   🗑️  以下 {len(deleted_ids)} 个作品已被作者删除/隐藏:")
+        print(f"\n   🗑️  {len(deleted_ids)} posts deleted/hidden by author:")
         for did in sorted(deleted_ids, reverse=True):
             info = existing.get(did, ("未知", False, "???"))
             local_name, is_img, seq = info
@@ -174,7 +172,7 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
             print(f"      {icon} {seq}_{did}  {desc_preview}")
         result["deleted"] = len(deleted_ids)
 
-    # 对比找出新作品
+    # Find new posts by comparison
     new_videos = [v for v in all_videos if v.get("aweme_id") not in existing_ids]
     if not new_videos:
         print("\n   ✅ 已是最新，无需更新")

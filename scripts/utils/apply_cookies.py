@@ -1,12 +1,11 @@
-"""
-Cookie 应用工具
+"""Cookie management utility.
 
-从 cookies/ 目录下的 Netscape 格式 cookie 文件读取并更新到爬虫配置中。
+Reads Netscape-format cookie files from cookies/ and updates crawler config.
 
-用法:
-    python scripts/apply_cookies.py              # 应用所有 cookie
-    python scripts/apply_cookies.py --check      # 仅检查过期状态，不应用
-    python scripts/apply_cookies.py --platform douyin  # 仅更新抖音
+Usage:
+    python scripts/utils/apply_cookies.py              # Apply all cookies
+    python scripts/utils/apply_cookies.py --check      # Check expiry only, don't apply
+    python scripts/utils/apply_cookies.py --platform douyin  # Update Douyin only
 """
 
 import os
@@ -15,19 +14,16 @@ import sys
 import time
 from datetime import UTC, datetime
 
-# 项目根目录
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# 配置文件路径映射
 CONFIG_MAP = {
     "douyin": os.path.join(ROOT, "lib", "crawlers", "douyin", "web", "config.yaml"),
     "tiktok": os.path.join(ROOT, "lib", "crawlers", "tiktok", "web", "config.yaml"),
 }
 
-# Cookie 文件路径
 COOKIE_DIR = os.path.join(ROOT, "cookies")
 
-# 关键 Cookie（用于过期判断）
+# Critical cookies (for expiry checking)
 CRITICAL_COOKIES = {
     "douyin": ["sessionid", "sid_tt", "ttwid", "__ac_nonce", "__ac_signature"],
     "tiktok": ["sessionid", "ttwid", "msToken"],
@@ -35,17 +31,17 @@ CRITICAL_COOKIES = {
 
 
 def parse_netscape_cookies(filepath: str) -> list[dict]:
-    """解析 Netscape 格式的 cookie 文件。
+    """Parse a Netscape-format cookie file.
 
-    处理 #HttpOnly_ 前缀、注释行和制表符分隔的字段。
-    每个返回值包含 name、value、expires 和 domain。
+    Handles #HttpOnly_ prefix, comment lines, tab-separated fields.
+    Each returned cookie has name, value, expires, and domain.
 
     Args:
-        filepath: Netscape 格式 cookie 文件路径。
+        filepath: Path to Netscape-format cookie file.
 
     Returns:
-        cookie 字典列表，每个字典包含 name、value、expires、domain 字段。
-        文件不存在或为空时返回空列表。
+        List of cookie dicts with name, value, expires, domain fields.
+        Returns empty list if file does not exist.
     """
     cookies = []
     if not os.path.exists(filepath):
@@ -56,7 +52,7 @@ def parse_netscape_cookies(filepath: str) -> list[dict]:
             line = line.strip()
             if not line:
                 continue
-            # 去掉 #HttpOnly_ 前缀
+            # Strip #HttpOnly_ prefix
             if line.startswith("#HttpOnly_"):
                 line = line[len("#HttpOnly_") :]
             elif line.startswith("#") and not line.startswith("#HttpOnly"):
@@ -76,47 +72,47 @@ def parse_netscape_cookies(filepath: str) -> list[dict]:
 
 
 def cookies_to_header(cookies: list[dict]) -> str:
-    """将 cookie 列表转换为请求头 Cookie 字符串。
+    """Convert cookie list to a Cookie header string.
 
-    自动去重：同名 cookie 保留最后一个值。
-    过滤空 key 的条目。
+    Deduplicates by keeping the last value for each cookie name.
+    Filters out empty-key entries.
 
     Args:
-        cookies: parse_netscape_cookies 返回的 cookie 字典列表。
+        cookies: List of cookie dicts from parse_netscape_cookies.
 
     Returns:
-        "key1=value1; key2=value2" 格式的 Cookie 字符串。
+        Cookie string in "key1=value1; key2=value2" format.
     """
-    # 去重：保留最后一个同名 cookie
+    # Deduplicate: keep last value per name
     seen = {}
     for c in cookies:
         seen[c["name"]] = c["value"]
-    # 过滤空 key
+    # Filter empty keys
     seen.pop("", None)
     return "; ".join(f"{k}={v}" for k, v in seen.items())
 
 
 def update_yaml_cookie(yaml_path: str, cookie_str: str) -> bool:
-    """更新 YAML 配置文件中的 Cookie 字段。
+    """Update the cookie field in a YAML config file.
 
-    读取 YAML 文件，更新 cookie 字段并写回。
-    如果文件不存在则跳过。
+    Reads the YAML file, updates the cookie field, and writes back.
+    Skips if file does not exist.
 
     Args:
-        yaml_path: YAML 配置文件路径。
-        cookie_str: cookies_to_header 生成的 Cookie 字符串。
+        yaml_path: Path to the YAML config file.
+        cookie_str: Cookie string from cookies_to_header.
 
     Returns:
-        True 表示更新成功，False 表示文件不存在或写入失败。
+        True on success, False if file does not exist or write fails.
     """
     if not os.path.exists(yaml_path):
-        print(f"  ❌ 文件不存在: {yaml_path}")
+        print(f"  ❌ File not found: {yaml_path}")
         return False
 
     with open(yaml_path, encoding="utf-8") as f:
         content = f.read()
 
-    # 替换 Cookie 行
+    # Replace cookie line
     pattern = re.compile(r"^(      Cookie: ).*$", re.MULTILINE)
     if not pattern.search(content):
         pattern = re.compile(r"^(      Cookie: ).*", re.MULTILINE)
@@ -124,7 +120,7 @@ def update_yaml_cookie(yaml_path: str, cookie_str: str) -> bool:
     new_content = pattern.sub(rf"\1{cookie_str}", content)
 
     if new_content == content:
-        print("  ⚠️  Cookie 内容无变化")
+        print("  ⚠️  Cookie content unchanged")
         return False
 
     with open(yaml_path, "w", encoding="utf-8") as f:
@@ -133,12 +129,12 @@ def update_yaml_cookie(yaml_path: str, cookie_str: str) -> bool:
 
 
 def check_expiry(cookies: list[dict], platform: str) -> list[str]:
-    """检查 cookie 过期状态，返回警告信息列表"""
+    """Check cookie expiry status, return list of warnings."""
     now = time.time()
     warnings = []
     critical = CRITICAL_COOKIES.get(platform, [])
 
-    # 按名称分组取最新的
+    # Group by name, take the latest
     cookie_map = {}
     for c in cookies:
         if c["expires"] > cookie_map.get(c["name"], {}).get("expires", 0):
@@ -164,14 +160,14 @@ def check_expiry(cookies: list[dict], platform: str) -> list[str]:
 
 
 def print_cookie_summary(cookies: list[dict], platform: str):
-    """打印 cookie 概要"""
+    """Print cookie summary."""
     now = time.time()
     total = len(cookies)
     expired = sum(1 for c in cookies if 0 < c["expires"] <= now)
     critical_names = CRITICAL_COOKIES.get(platform, [])
 
-    print(f"\n📊 {platform.upper()} Cookie 统计:")
-    print(f"   总数: {total} | 已过期: {expired}")
+    print(f"\n📊 {platform.upper()} Cookie stats:")
+    print(f"   Total: {total} | Expired: {expired}")
 
     # 关键 cookie 状态
     cookie_map = {}

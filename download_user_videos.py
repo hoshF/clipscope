@@ -1,17 +1,16 @@
-"""
-抖音用户主页所有视频批量下载工具
+"""Batch download all videos from a Douyin user's profile.
 
-使用方式：
-    python download_user_videos.py <用户主页URL>
+Usage:
+    python download_user_videos.py <user_profile_url>
 
-示例：
-    python download_user_videos.py "https://www.douyin.com/user/MS4wLjABAAAAJI9sVoEAVQU3r8Cp4ubMw3mrhO3aGNNEuM-M-S2oy3PjW5gGM5vYrgAcIsTNzMfh"
+Example:
+    python download_user_videos.py "https://www.douyin.com/user/MS4wLjABAAAA..."
 
-依赖：
-    运行前确保已配置 Cookie：
-      1. 用 Cookie-Editor 导出 Netscape 格式 Cookie 到 cookies/douyin.txt
-      2. 运行: python scripts/apply_cookies.py
-      或直接运行本脚本，会自动检查和提醒
+Dependencies:
+    Ensure cookies are configured before running:
+      1. Export Netscape format cookies to cookies/douyin.txt using Cookie-Editor
+      2. Run: python scripts/utils/apply_cookies.py
+      Or just run this script directly; it will auto-check and remind you.
 """
 
 import asyncio
@@ -24,27 +23,25 @@ import time
 import aiofiles
 import httpx
 
-# ── 将 lib 加入 Python 路径 ──
 LIB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib")
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 
 
-# ── Cookie 过期检查 ──
 def check_cookie_expiry() -> bool:
-    """检查 douyin cookie 是否过期，过期则打印提醒。
+    """Check if douyin cookies are expired and print warnings.
 
-    检查 cookies/douyin.txt 中每个 cookie 的 expires 字段，
-    若已过期或即将在 7 天内过期，打印警告信息。
+    Inspects the expires field of each cookie in cookies/douyin.txt.
+    Prints warnings if any are expired or expiring within 7 days.
 
     Returns:
-        True 表示 cookie 有效，False 表示文件缺失或已过期。
+        True if cookies are valid, False if file missing or expired.
     """
     cookie_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies", "douyin.txt")
     if not os.path.exists(cookie_file):
-        print("⚠️  Cookie 文件不存在: cookies/douyin.txt")
-        print("   请先用 Cookie-Editor 导出抖音 Cookie 到该文件")
-        print("   然后运行: python scripts/apply_cookies.py\n")
+        print("⚠️  Cookie file not found: cookies/douyin.txt")
+        print("   Please export Douyin cookies to this file using Cookie-Editor")
+        print("   Then run: python scripts/utils/apply_cookies.py\n")
         return False
 
     now = time.time()
@@ -56,7 +53,7 @@ def check_cookie_expiry() -> bool:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
-            # 去掉 #HttpOnly_ 前缀
+            # Strip #HttpOnly_ prefix
             if line.startswith("#HttpOnly_"):
                 line = line[len("#HttpOnly_") :]
 
@@ -71,18 +68,18 @@ def check_cookie_expiry() -> bool:
                         expiring_soon.append(name)
 
     if expired:
-        print("❌  Cookie 已过期！请及时更新")
-        print(f"   过期项: {', '.join(expired)}")
-        print("   更新步骤:")
-        print("     1. 浏览器登录 https://www.douyin.com")
-        print("     2. 用 Cookie-Editor 导出 Netscape 格式")
-        print("     3. 替换 cookies/douyin.txt 内容")
-        print("     4. 运行: python scripts/apply_cookies.py\n")
+        print("❌  Cookies expired! Please update promptly")
+        print(f"   Expired: {', '.join(expired)}")
+        print("   Update steps:")
+        print("     1. Log in to https://www.douyin.com in your browser")
+        print("     2. Export Netscape format using Cookie-Editor")
+        print("     3. Replace cookies/douyin.txt contents")
+        print("     4. Run: python scripts/utils/apply_cookies.py\n")
         return False
 
     if expiring_soon:
-        print(f"⚠️  关键 Cookie 即将过期: {', '.join(expiring_soon)}")
-        print("   建议尽快更新\n")
+        print(f"⚠️  Critical cookies expiring soon: {', '.join(expiring_soon)}")
+        print("   Recommend updating soon\n")
 
     return True
 
@@ -92,68 +89,65 @@ from crawlers.hybrid.hybrid_crawler import HybridCrawler
 
 
 def extract_sec_user_id(url: str) -> str:
-    """从抖音用户主页 URL 中提取 sec_user_id"""
-    # 格式: https://www.douyin.com/user/MS4wLjABAAAA...
+    """Extract sec_user_id from a Douyin user profile URL."""
+    # Format: https://www.douyin.com/user/MS4wLjABAAAA...
     match = re.search(r"/user/([^/?]+)", url)
     if match:
         return match.group(1)
-    raise ValueError(f"无法从 URL 中提取 sec_user_id: {url}")
+    raise ValueError(f"Unable to extract sec_user_id from URL: {url}")
 
 
 async def download_video(video_url: str, filepath: str, headers: dict) -> bool:
-    """下载单个视频文件"""
+    """Download a single video file."""
     try:
-        # 不使用代理，直接连接（避免 SOCKS 代理问题）
+        # Connect directly, no proxy (avoids SOCKS proxy issues)
         transport = httpx.AsyncHTTPTransport(proxy=None, local_address="0.0.0.0")
         async with httpx.AsyncClient(timeout=120.0, transport=transport) as client:
             async with client.stream("GET", video_url, headers=headers) as resp:
                 if resp.status_code != 200:
-                    print(f"  ⚠️ 下载失败，HTTP {resp.status_code}")
+                    print(f"  ⚠️ Download failed, HTTP {resp.status_code}")
                     return False
                 async with aiofiles.open(filepath, "wb") as f:
                     async for chunk in resp.aiter_bytes():
                         await f.write(chunk)
                 return True
     except Exception as e:
-        print(f"  ⚠️ 下载异常: {e}")
+        print(f"  ⚠️ Download error: {e}")
         return False
 
 
 async def main():
     if len(sys.argv) < 2:
-        print("用法: python download_user_videos.py <抖音用户主页URL>")
-        print('示例: python download_user_videos.py "https://www.douyin.com/user/MS4wLjABAAAA..."')
+        print("Usage: python download_user_videos.py <douyin_user_profile_url>")
+        print(
+            'Example: python download_user_videos.py "https://www.douyin.com/user/MS4wLjABAAAA..."'
+        )
         sys.exit(1)
 
-    # ── Cookie 过期检查 ──
     if not check_cookie_expiry():
-        print("⚠️  是否继续？(y/N): ", end="")
-        # 非交互模式默认继续
+        print("⚠️  Continue? (y/N): ", end="")
+        # Non-interactive mode: continue by default
         pass
 
     url = sys.argv[1]
     sec_user_id = extract_sec_user_id(url)
-    print(f"🔍 用户 sec_user_id: {sec_user_id}")
+    print(f"🔍 User sec_user_id: {sec_user_id}")
 
-    # 创建下载目录
     output_dir = os.path.join(
         os.path.dirname(os.path.abspath(__file__)), "data", "downloads", sec_user_id[:16]
     )
     os.makedirs(output_dir, exist_ok=True)
-    print(f"📁 下载目录: {output_dir}")
+    print(f"📁 Download directory: {output_dir}")
 
-    # 保存元数据（供后续同步使用）
     meta = {"sec_user_id": sec_user_id, "url": url, "downloaded_at": time.time()}
     with open(os.path.join(output_dir, "_meta.json"), "w") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
-    print("📄 元数据已保存")
+    print("📄 Metadata saved")
 
-    # 初始化爬虫
     douyin_crawler = DouyinWebCrawler()
     hybrid_crawler = HybridCrawler()
 
-    # ── 第一步：获取用户所有视频列表（分页） ──
-    print("\n📋 正在获取视频列表...")
+    print("\n📋 Fetching video list...")
     all_videos = []
     max_cursor = 0
     has_more = True
@@ -168,26 +162,23 @@ async def main():
                 count=20,
             )
 
-            # 解析结果
             aweme_list = result.get("aweme_list", [])
             all_videos.extend(aweme_list)
 
-            # 更新分页信息
             max_cursor = result.get("max_cursor", 0)
             has_more = result.get("has_more", False)
 
-            print(f"  第 {page} 页: 获取到 {len(aweme_list)} 个视频 (累计 {len(all_videos)} 个)")
+            print(f"  Page {page}: got {len(aweme_list)} videos (total {len(all_videos)})")
 
             if not aweme_list:
                 break
 
         except Exception as e:
-            print(f"  ❌ 获取第 {page} 页失败: {e}")
+            print(f"  ❌ Failed to fetch page {page}: {e}")
             break
 
-    print(f"\n✅ 共获取到 {len(all_videos)} 个视频")
+    print(f"\n✅ Total: {len(all_videos)} videos fetched")
 
-    # ── 第二步：解析并下载每个视频 ──
     success_count = 0
     fail_count = 0
     skip_count = 0
@@ -202,27 +193,24 @@ async def main():
 
     for idx, video in enumerate(all_videos, 1):
         aweme_id = video.get("aweme_id", "")
-        desc = video.get("desc", "无标题")[:40]
+        desc = video.get("desc", "(no title)")[:40]
         aweme_type = video.get("aweme_type")
-        print(f"\n[{idx}/{len(all_videos)}] 视频 ID: {aweme_id} (type={aweme_type})")
-        print(f"  描述: {desc}")
+        print(f"\n[{idx}/{len(all_videos)}] Video ID: {aweme_id} (type={aweme_type})")
+        print(f"  Desc: {desc}")
 
-        # 判断是否为图集（抖音图集 type=2 或 68）
         is_image = aweme_type in (2, 68)
         ext = ".jpg" if is_image else ".mp4"
 
-        # 跳过已下载的文件
         safe_desc = "".join(c for c in desc if c.isalnum() or c in " _-").strip() or "video"
         filename = f"{idx:03d}_{aweme_id}_{safe_desc}{ext}"
         filepath = os.path.join(output_dir, filename)
 
         if os.path.exists(filepath) and os.path.getsize(filepath) > 1024:
-            print("  ⏭️ 已存在，跳过")
+            print("  ⏭️ Already exists, skipping")
             skip_count += 1
             continue
 
         try:
-            # 使用混合解析获取无水印链接
             parsed = await hybrid_crawler.hybrid_parsing_single_video(
                 url=f"https://www.douyin.com/video/{aweme_id}",
                 minimal=True,
@@ -231,13 +219,11 @@ async def main():
             media_type = parsed.get("type", "video")
 
             if media_type == "image" or is_image:
-                # ── 图集：下载所有图片 ──
                 image_data = parsed.get("image_data", {})
                 image_urls = image_data.get("no_watermark_image_list", []) or image_data.get(
                     "watermark_image_list", []
                 )
                 if not image_urls:
-                    # 从原始数据中提取
                     images = video.get("images", [])
                     image_urls = [
                         img.get("url_list", [None])[0] for img in images if img.get("url_list")
@@ -252,13 +238,12 @@ async def main():
                         img_path = os.path.join(img_dir, f"{ii + 1:02d}.jpg")
                         if await download_video(img_url, img_path, headers):
                             dl_ok += 1
-                    print(f"  ✅ 图集下载完成 ({dl_ok}/{len(image_urls)} 张)")
+                    print(f"  ✅ Album download complete ({dl_ok}/{len(image_urls)} images)")
                     success_count += 1
                 else:
-                    print("  ❌ 无法获取图集下载链接")
+                    print("  ❌ Failed to get album download links")
                     fail_count += 1
             else:
-                # ── 视频：获取无水印链接 ──
                 video_data = parsed.get("video_data", {})
                 download_url = (
                     video_data.get("nwm_video_url_HQ")
@@ -268,50 +253,46 @@ async def main():
                 )
 
                 if not download_url:
-                    # 从原始 aweme_list 数据中提取
                     video_info = video.get("video", {}) or {}
                     play_addr = video_info.get("play_addr", {}) or {}
                     url_list = play_addr.get("url_list", [])
                     download_url = url_list[0] if url_list else None
 
                 if not download_url:
-                    print("  ❌ 无法获取下载链接")
+                    print("  ❌ Failed to get download URL")
                     fail_count += 1
                     continue
 
-                print("  ⬇️ 正在下载...")
+                print("  ⬇️ Downloading...")
                 success = await download_video(download_url, filepath, headers)
 
                 if success:
                     size_mb = os.path.getsize(filepath) / 1024 / 1024
-                    print(f"  ✅ 下载完成 ({size_mb:.1f} MB)")
+                    print(f"  ✅ Download complete ({size_mb:.1f} MB)")
                     success_count += 1
                 else:
                     fail_count += 1
 
-            # 适当延时，避免被风控
-            await asyncio.sleep(1.5)
+            await asyncio.sleep(1.5)  # Rate limit: avoid triggering anti-crawl
 
         except Exception as e:
-            print(f"  ❌ 解析/下载失败: {e}")
+            print(f"  ❌ Parse/download failed: {e}")
             fail_count += 1
 
-    # ── 输出统计 ──
     print("\n" + "=" * 50)
-    print("📊 下载统计")
-    print(f"  总视频数: {len(all_videos)}")
-    print(f"  ✅ 成功: {success_count}")
-    print(f"  ❌ 失败: {fail_count}")
-    print(f"  ⏭️ 跳过: {skip_count}")
-    print(f"  📁 保存路径: {output_dir}")
+    print("📊 Download summary")
+    print(f"  Total videos: {len(all_videos)}")
+    print(f"  ✅ Success: {success_count}")
+    print(f"  ❌ Failed: {fail_count}")
+    print(f"  ⏭️ Skipped: {skip_count}")
+    print(f"  📁 Save path: {output_dir}")
     print("=" * 50)
 
-    # ── 下载完成后自动运行重命名脚本 ──
     try:
         rename_script = os.path.join(
             os.path.dirname(os.path.abspath(__file__)), "scripts", "download", "rename_user_dirs.py"
         )
-        print("\n📦 下载完成，正在运行重命名脚本 scripts/download/rename_user_dirs.py ...")
+        print("\n📦 Download complete, running rename script...")
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
             rename_script,
@@ -330,11 +311,11 @@ async def main():
             except Exception:
                 print(err, file=sys.stderr)
         if proc.returncode == 0:
-            print("✅ 重命名脚本执行成功")
+            print("✅ Rename script completed successfully")
         else:
-            print(f"❌ 重命名脚本返回码 {proc.returncode}")
+            print(f"❌ Rename script returned code {proc.returncode}")
     except Exception as e:
-        print(f"❌ 无法执行重命名脚本: {e}")
+        print(f"❌ Failed to run rename script: {e}")
 
 
 if __name__ == "__main__":

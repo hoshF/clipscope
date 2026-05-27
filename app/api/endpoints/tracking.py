@@ -1,6 +1,6 @@
-"""
-推荐流数据采集 API
-供油猴脚本推送抖音推荐页数据
+"""Recommendation feed data collection API.
+
+Receives Douyin feed data pushed by Tampermonkey scripts.
 """
 
 import json
@@ -21,22 +21,20 @@ TRACKING_DIR = os.path.join(
     "tracking",
 )
 
-# ── 内存去重缓存 ──
-# 记录每个日期的文件已有哪些 aweme_id，避免重复读取文件
-_dedup_cache = {}  # {date_str: set(aweme_ids)}
-_DEDUP_MAX_DAYS = 7  # 最多缓存7天
+_dedup_cache: dict[str, set] = {}  # {date_str: set(aweme_ids)}
+_DEDUP_MAX_DAYS = 7
 
 
 def _load_seen_ids(date_str: str) -> set:
-    """加载某天已记录的 aweme_id，带内存缓存。
+    """Load previously recorded aweme_ids for a given date, with cache.
 
-    缓存最多保留 _DEDUP_MAX_DAYS 天，避免重复读取文件。
+    Cache persists for up to _DEDUP_MAX_DAYS to avoid repeated file reads.
 
     Args:
-        date_str: 日期字符串，格式 YYYYMMDD。
+        date_str: Date string in YYYYMMDD format.
 
     Returns:
-        该日期已记录的 aweme_id 集合。
+        Set of aweme_ids already recorded for that date.
     """
     if date_str in _dedup_cache:
         return _dedup_cache[date_str]
@@ -56,7 +54,6 @@ def _load_seen_ids(date_str: str) -> set:
                     except json.JSONDecodeError:
                         pass
 
-    # 缓存并限制缓存大小
     _dedup_cache[date_str] = seen
     if len(_dedup_cache) > _DEDUP_MAX_DAYS:
         oldest = min(_dedup_cache.keys())
@@ -66,7 +63,7 @@ def _load_seen_ids(date_str: str) -> set:
 
 
 def _prune_old_cache() -> None:
-    """清理 _dedup_cache 中过期（非今天）的缓存条目。"""
+    """Remove expired (non-today) entries from _dedup_cache."""
     today = datetime.now().strftime("%Y%m%d")
     for date_str in list(_dedup_cache.keys()):
         if date_str < today:
@@ -93,29 +90,29 @@ class FeedSnapshot(BaseModel):
     captured_at: float  # timestamp
 
 
-@router.post("/feed", summary="接收推荐快照（自动去重）")
+@router.post("/feed", summary="Receive feed snapshot (auto-dedup)")
 async def receive_feed_snapshot(snapshot: FeedSnapshot, request: Request):
-    """油猴脚本推送的推荐页快照（自动过滤已存在的视频 ID）"""
+    """Receive a feed snapshot pushed by the Tampermonkey script (auto-dedup)."""
     _ensure_dir()
     ts = snapshot.captured_at or time.time()
     date_str = datetime.fromtimestamp(ts).strftime("%Y%m%d")
     day_file = os.path.join(TRACKING_DIR, f"feed_{date_str}.jsonl")
 
-    # 加载已见过的 ID + 从本次数据中提取所有 ID
+    # Load existing IDs + extract all IDs from incoming data
     seen_ids = _load_seen_ids(date_str)
     all_ids_incoming = {item.aweme_id for item in snapshot.items if item.aweme_id}
 
-    # 过滤出真正新增的
+    # Filter to truly new items
     new_items = [item for item in snapshot.items if item.aweme_id not in seen_ids]
 
     if not new_items:
         return ResponseModel(
             code=200,
-            message=f"无新增视频（共 {len(snapshot.items)} 条，均已存在）",
+            message=f"No new videos ({len(snapshot.items)} total, all already exist)",
             data={"new_count": 0, "total_today": len(seen_ids)},
         )
 
-    # 写入新数据
+    # Write new data
     record = {
         "captured_at": ts,
         "captured_at_str": datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S"),
@@ -127,19 +124,19 @@ async def receive_feed_snapshot(snapshot: FeedSnapshot, request: Request):
     with open(day_file, "a", encoding="utf-8") as f:
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    # 更新缓存
+    # Update cache
     _dedup_cache[date_str] = seen_ids | all_ids_incoming
 
     return ResponseModel(
         code=200,
-        message=f"新增 {len(new_items)} 条（去重 {len(snapshot.items) - len(new_items)} 条重复）",
+        message=f"Added {len(new_items)} new items (dedup {len(snapshot.items) - len(new_items)} duplicates)",
         data={"new_count": len(new_items), "total_today": len(_dedup_cache[date_str])},
     )
 
 
-@router.get("/history", summary="获取历史记录概要（去重统计）")
+@router.get("/history", summary="Get history summary (dedup stats)")
 async def get_tracking_history(request: Request):
-    """返回所有历史快照的日期和数量（按 aweme_id 去重）"""
+    """Return all historical snapshots' dates and counts (dedup by aweme_id)."""
     _ensure_dir()
     files = sorted(
         [f for f in os.listdir(TRACKING_DIR) if f.startswith("feed_") and f.endswith(".jsonl")]
@@ -179,16 +176,16 @@ async def get_tracking_history(request: Request):
     return ResponseModel(code=200, data=history)
 
 
-@router.get("/detail", summary="获取某天的详细数据（去重）")
+@router.get("/detail", summary="Get detailed data for a date (dedup)")
 async def get_tracking_detail(
     request: Request,
     date: str = Query(..., example="20260526", description="日期 YYYYMMDD"),
 ):
-    """获取指定日期的所有快照详情（按 aweme_id 去重）"""
+    """Get all snapshot details for a specific date (dedup by aweme_id)."""
     _ensure_dir()
     fpath = os.path.join(TRACKING_DIR, f"feed_{date}.jsonl")
     if not os.path.exists(fpath):
-        return ResponseModel(code=404, message="该日期无数据")
+        return ResponseModel(code=404, message="No data for this date")
 
     seen_ids = set()
     snapshots = []
@@ -198,7 +195,7 @@ async def get_tracking_detail(
             if line:
                 try:
                     record = json.loads(line)
-                    # 去重：只保留该快照中新增的 item
+                    # Dedup: keep unique items
                     deduped_items = []
                     for item in record.get("items", []):
                         aid = item.get("aweme_id")
@@ -222,18 +219,18 @@ async def get_tracking_detail(
     )
 
 
-@router.get("/stats", summary="获取趋势统计数据（去重）")
+@router.get("/stats", summary="Get trend statistics (dedup)")
 async def get_tracking_stats(request: Request):
-    """计算各话题/类别随时间的变化趋势（按 aweme_id 去重）"""
+    """Calculate hashtag/category trends over time (dedup by aweme_id)."""
     _ensure_dir()
     files = sorted(
         [f for f in os.listdir(TRACKING_DIR) if f.startswith("feed_") and f.endswith(".jsonl")]
     )
 
     if not files:
-        return ResponseModel(code=200, data={"trends": [], "message": "暂无数据"})
+        return ResponseModel(code=200, data={"trends": [], "message": "No data yet"})
 
-    # 按天汇总话题频率
+    # Aggregate hashtag frequency by day
     daily_tags = {}
 
     for fname in files:

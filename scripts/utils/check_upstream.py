@@ -1,13 +1,12 @@
-"""
-检查上游仓库更新脚本
+"""Check upstream repository update script.
 
-对比本地 lib/（来自 Evil0ctal/Douyin_TikTok_Download_API）与上游最新代码，
-筛选出有意义的改动（源码变更），忽略无关文件。
+Compares the local lib/ (from Evil0ctal/Douyin_TikTok_Download_API)
+with the latest upstream code, filtering meaningful changes.
 
-用法:
-    python scripts/utils/check_upstream.py                  # 检查更新并显示差异
-    python scripts/utils/check_upstream.py --brief           # 仅显示有更新的文件列表
-    python scripts/utils/check_upstream.py --apply <file>    # 将上游单个文件应用到本地
+Usage:
+    python scripts/utils/check_upstream.py                  # Check updates and show diffs
+    python scripts/utils/check_upstream.py --brief           # Show only changed file list
+    python scripts/utils/check_upstream.py --apply <file>    # Apply single upstream file locally
 """
 
 import json
@@ -21,7 +20,7 @@ UPSTREAM_BRANCH = "main"
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 LIB_DIR = os.path.join(ROOT, "lib")
 
-# 无意义的文件/目录模式（过滤掉，不展示差异）
+# Insignificant file/directory patterns (filter out, don't show diffs)
 IGNORE_DIRS = {
     "__pycache__",
     ".github",
@@ -53,24 +52,21 @@ IGNORE_EXTENSIONS = {".pyc", ".pyo", ".log"}
 
 
 def should_ignore(file_path: str) -> bool:
-    """判断文件是否应忽略"""
+    """Determine if a file should be ignored."""
     parts = file_path.split("/")
     filename = parts[-1]
-    # 检查目录名
     for part in parts[:-1]:
         if part in IGNORE_DIRS:
             return True
-    # 检查文件名
     if filename in IGNORE_FILES:
         return True
-    # 检查扩展名
     if any(filename.endswith(ext) for ext in IGNORE_EXTENSIONS):
         return True
     return False
 
 
 def is_low_priority(file_path: str) -> bool:
-    """判断文件是否低优先级（配置/依赖类，非源码逻辑变更）"""
+    """Determine if a file is low priority (config/dependency, not source logic)."""
     return file_path.split("/")[-1] in {"requirements.txt", "config.yaml"}
 
 
@@ -90,14 +86,14 @@ def fetch_upstream_tree() -> dict:
         with urllib.request.urlopen(api_url, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as e:
-        print(f"❌ 无法获取上游仓库信息: {e}")
-        print(f"   请确认仓库 {UPSTREAM_REPO} 存在且可访问")
+        print(f"❌ Failed to fetch upstream repo info: {e}")
+        print(f"   Please verify that {UPSTREAM_REPO} exists and is accessible")
         sys.exit(1)
 
     files = {}
     for item in data.get("tree", []):
         if item["type"] == "blob" and not should_ignore(item["path"]):
-            # 构造 raw 文件 URL
+            # Build raw file URL
             files[item["path"]] = (
                 f"https://raw.githubusercontent.com/{UPSTREAM_REPO}/{UPSTREAM_BRANCH}/{item['path']}"
             )
@@ -106,12 +102,12 @@ def fetch_upstream_tree() -> dict:
 
 
 def get_local_files() -> dict:
-    """获取本地 lib/ 目录下的所有文件内容"""
+    """Get all file contents from local lib/ directory."""
     local_files = {}
     lib_path = Path(LIB_DIR)
 
     if not lib_path.exists():
-        print(f"❌ 本地 lib/ 目录不存在: {LIB_DIR}")
+        print(f"❌ Local lib/ directory not found: {LIB_DIR}")
         sys.exit(1)
 
     for fpath in lib_path.rglob("*"):
@@ -134,7 +130,7 @@ def check_updates(brief: bool = False) -> list:
 
     每个元素: {"file": str, "status": "added"|"modified"|"deleted", "low_priority": bool}
     """
-    print(f"🔍 检查上游仓库更新: {UPSTREAM_REPO} @ {UPSTREAM_BRANCH}")
+    print(f"🔍 Checking upstream updates: {UPSTREAM_REPO} @ {UPSTREAM_BRANCH}")
     print()
 
     upstream_files = fetch_upstream_tree()
@@ -142,7 +138,7 @@ def check_updates(brief: bool = False) -> list:
 
     changes = []
 
-    # 检查上游新增或修改的文件
+    # Check for new or modified upstream files
     for fpath, url in upstream_files.items():
         if fpath not in local_files:
             changes.append(
@@ -153,7 +149,7 @@ def check_updates(brief: bool = False) -> list:
                 }
             )
         else:
-            # 比较内容
+            # Compare content
             local_content = local_files[fpath]
             try:
                 import urllib.request
@@ -171,7 +167,7 @@ def check_updates(brief: bool = False) -> list:
             except Exception:
                 pass  # 网络问题跳过
 
-    # 检查本地有但上游已删除的文件
+    # Check for files that exist locally but were deleted upstream
     for fpath in local_files:
         if fpath not in upstream_files:
             changes.append(
@@ -182,7 +178,7 @@ def check_updates(brief: bool = False) -> list:
                 }
             )
 
-    # 排序：低优先级在后
+    # Sort: low priority items last
     changes.sort(key=lambda x: (x["low_priority"], x["file"]))
 
     return changes

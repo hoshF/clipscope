@@ -1,26 +1,25 @@
-"""
-用户评论关系拓扑分析工具
+"""User comment social graph analysis tool.
 
-基于采集的评论数据，构建用户之间的互动关系网络，
-发现核心粉丝圈、互动社群和意见领袖。
+Builds interaction networks from collected comment data to discover
+core fan circles, communities, and opinion leaders.
 
-使用方式：
+Usage:
     python scripts/analyze/analyze_social_graph.py <sec_user_id_or_dir>
 
-示例：
-    # 分析指定用户的评论关系
+Example:
+    # Analyze comment relationships for a user
     python scripts/analyze/analyze_social_graph.py MS4wLjABAAAA...
 
-    # 指定数据目录
+    # Specify data directory
     python scripts/analyze/analyze_social_graph.py data/comments/user123/
 
-输出：
+Output:
     data/comments/<sec_user_id>/
         └── relations/
-            ├── relation_graph.json       关系图数据（节点+边）
-            ├── communities.json          社群发现结果
-            ├── top_interactors.json      高互动用户排名
-            └── report.txt                文本报告
+            ├── relation_graph.json       Graph data (nodes + edges)
+            ├── communities.json          Community detection results
+            ├── top_interactors.json      Top interactors ranking
+            └── report.txt                Text report
 """
 
 import json
@@ -35,18 +34,17 @@ from utils import data_utils
 
 
 def load_comments(sec_user_id_or_dir: str) -> tuple:
-    """
-    加载评论数据。
+    """Load comment data.
 
-    返回 (comments_list, target_user_info)
+    Returns (comments_list, target_user_info).
     """
-    # 判断是 sec_user_id 还是目录路径
+    # Check if sec_user_id or directory path
     if os.path.isdir(sec_user_id_or_dir):
         data_dir = sec_user_id_or_dir
     else:
         data_dir = data_utils.find_comment_dir(sec_user_id_or_dir)
         if not data_dir:
-            # 降级：尝试作为目录名直接匹配
+            # Fallback: try as direct directory name match
             guess = os.path.join(data_utils.PROJECT_ROOT, "data", "comments", sec_user_id_or_dir)
             if os.path.isdir(guess):
                 data_dir = guess
@@ -59,8 +57,8 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
     meta_path = os.path.join(data_dir, "_meta.json")
 
     if not os.path.exists(comments_path):
-        print(f"❌ 未找到评论数据: {comments_path}")
-        print("   请先运行: python scripts/collect_comments.py <URL>")
+        print(f"❌ Comment data not found: {comments_path}")
+        print("   Please run: python scripts/collect_comments.py <URL>")
         sys.exit(1)
 
     with open(comments_path, encoding="utf-8") as f:
@@ -73,35 +71,34 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
             meta = json.load(f)
             target_user = meta.get("target_user", {})
 
-    print(f"📂 数据目录: {data_dir}")
-    print(f"📝 评论总数: {len(comments)}")
+    print(f"📂 Data directory: {data_dir}")
+    print(f"📝 Total comments: {len(comments)}")
 
     return comments, target_user, data_dir
 
 
 def build_relation_graph(comments: list, target_user: dict) -> dict:
-    """
-    构建评论互动关系图。
+    """Build a comment interaction relationship graph.
 
-    节点: 所有参与互动的用户
-    边: 用户之间的评论/回复关系
+    Nodes: all users who participated in interactions.
+    Edges: comment/reply relationships between users.
 
-    边的权重计算：
-      - 直接评论目标用户: weight += 1.0
-      - 回复其他评论者: weight += 0.5
-      - 同一视频下出现（共现）: weight += 0.1
+    Edge weight calculation:
+      - Direct comment on target: weight += 1.0
+      - Reply to another commenter: weight += 0.5
+      - Co-occurrence in same video: weight += 0.1
     """
-    # ── 节点统计 ──
+    # Node statistics
     users = {}  # uid -> user_info
     user_videos = defaultdict(set)  # uid -> set of aweme_ids
     user_comment_count = Counter()  # uid -> total comments
 
-    # ── 边统计 ──
+    # Edge statistics
     # relation_edges: (from_uid, to_uid) -> {weight, interactions}
     edges = defaultdict(lambda: {"weight": 0.0, "count": 0, "interactions": []})
 
     target_uid = target_user.get("uid", "")
-    target_nickname = target_user.get("nickname", "目标用户")
+    target_nickname = target_user.get("nickname", "(target user)")
 
     for c in comments:
         user = c.get("user", {})
@@ -114,19 +111,19 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
         if not uid:
             continue
 
-        # 跳过目标用户自己的评论（自评不构成关系）
+        # Skip target user's own comments (self-comments don't form relationships)
         if uid == target_uid:
             continue
 
-        # 记录用户信息
+        # Record user info
         if uid not in users:
             users[uid] = user
         user_videos[uid].add(aweme_id)
         user_comment_count[uid] += 1
 
-        # ── 关系边构建 ──
+        # Edge construction
 
-        # 1. 直接评论目标用户的作品（一级评论）
+        # 1. Direct comment on target's post (top-level comment)
         if not reply_to_cid:
             edge_key = (uid, f"target:{target_uid}") if target_uid else (uid, "__target__")
             edges[edge_key]["weight"] += 1.0
@@ -139,7 +136,7 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
                 }
             )
 
-        # 2. 回复其他评论者
+        # 2. Reply to another commenter
         if reply_to_uid and reply_to_uid != uid:
             edge_key = (uid, reply_to_uid)
             edges[edge_key]["weight"] += 0.5
@@ -152,12 +149,12 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
                 }
             )
 
-    # ── 构建输出格式 ──
-    # 节点列表: 所有出现过的用户 + 目标用户
+    # Build output format
+    # Nodes: all users who appeared + target user
     target_node_id = f"target:{target_uid}" if target_uid else "__target__"
     nodes = []
 
-    # 目标用户节点
+    # Target user node
     nodes.append(
         {
             "id": target_node_id,
@@ -168,12 +165,12 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
         }
     )
 
-    # 评论者节点
+    # Commenter nodes
     for uid, info in users.items():
         nodes.append(
             {
                 "id": uid,
-                "label": info.get("nickname", "未知"),
+                "label": info.get("nickname", "(unknown)"),
                 "type": "commenter",
                 "uid": uid,
                 "comment_count": user_comment_count[uid],
@@ -187,18 +184,18 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
     edge_list = []
     for (from_uid, to_uid), data in edges.items():
         if data["count"] < 2:
-            continue  # 过滤单次互动，减少噪音
+            continue  # Filter single interactions to reduce noise
         edge_list.append(
             {
                 "source": from_uid,
                 "target": to_uid,
                 "weight": round(data["weight"], 1),
                 "count": data["count"],
-                "interactions": data["interactions"][:10],  # 只保留最近10条
+                "interactions": data["interactions"][:10],  # Keep last 10 only
             }
         )
 
-    # 按权重排序
+    # Sort by weight
     edge_list.sort(key=lambda x: x["weight"], reverse=True)
 
     return {
@@ -217,29 +214,29 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
 
 
 def detect_communities(graph: dict) -> list:
-    """
-    基于评论共现关系发现社群。
+    """Detect communities based on comment co-occurrence.
 
-    策略：如果两个评论者在同一视频下都发表过评论，则存在共现关系。
-    通过共现频率聚类，发现"小圈子"。
+    Strategy: if two commenters both commented on the same video,
+    they have a co-occurrence relationship. Cluster by frequency
+    to discover "cliques".
     """
-    # 这里实现一种简化的社群发现：基于视频共现的 Jaccard 相似度
+    # Simplified community detection: Jaccard similarity based on video co-occurrence
     edges = graph.get("edges", [])
     nodes = graph.get("nodes", [])
 
-    # 提取高互动用户（评论数 >= 3 或是回复关系的参与者）
+    # Extract highly interactive users (>=3 comments or participated in replies)
     active_uids = set()
     for edge in edges:
         active_uids.add(edge["source"])
         active_uids.add(edge["target"])
 
-    # 过滤掉目标用户
+    # Filter out target user
     target_prefix = "target:"
     active_uids = {u for u in active_uids if not u.startswith(target_prefix)}
 
     communities = []
     if active_uids:
-        # 按权重降序取前50个用户作为核心成员
+        # Take top 50 users by weight as core members
         uid_weights = defaultdict(float)
         for edge in edges:
             if edge["source"] in active_uids:
@@ -249,8 +246,8 @@ def detect_communities(graph: dict) -> list:
 
         top_users = sorted(uid_weights.items(), key=lambda x: x[1], reverse=True)[:50]
 
-        # 简单分组：按 follower_count 分为三层
-        # KOL层（粉丝>1万）、核心粉丝层（粉丝100-1万）、普通粉丝层
+        # Simple grouping by follower_count into 3 tiers
+        # KOL (>10K), Core fans (100-10K), Regular fans (<100)
         kols = []
         core = []
         normal = []
@@ -261,7 +258,7 @@ def detect_communities(graph: dict) -> list:
             followers = info.get("follower_count", 0)
             entry = {
                 "uid": uid,
-                "nickname": info.get("label", "未知"),
+                "nickname": info.get("label", "(unknown)"),
                 "weight": round(weight, 1),
                 "comment_count": info.get("comment_count", 0),
                 "follower_count": followers,
@@ -275,28 +272,30 @@ def detect_communities(graph: dict) -> list:
 
         if kols:
             communities.append(
-                {"name": "🌟 KOL / 意见领袖", "members": kols[:20], "count": len(kols)}
+                {"name": "🌟 KOLs / Opinion Leaders", "members": kols[:20], "count": len(kols)}
             )
         if core:
             communities.append(
-                {"name": "💬 核心粉丝 / 活跃互动者", "members": core[:30], "count": len(core)}
+                {
+                    "name": "💬 Core Fans / Active Interactors",
+                    "members": core[:30],
+                    "count": len(core),
+                }
             )
         if normal:
             communities.append(
-                {"name": "👥 普通粉丝", "members": normal[:30], "count": len(normal)}
+                {"name": "👥 Regular Fans", "members": normal[:30], "count": len(normal)}
             )
 
     return communities
 
 
 def find_top_interactors(graph: dict) -> dict:
-    """
-    找出与目标用户互动最多的评论者。
-    """
+    """Find the commenters who interact most with the target user."""
     edges = graph.get("edges", [])
     nodes_map = {n["id"]: n for n in graph.get("nodes", [])}
 
-    # 筛选直接评论目标用户的边
+    # Filter edges that directly target the target user
     target_edges = [e for e in edges if str(e["target"]).startswith("target:")]
 
     interactors = []
@@ -305,7 +304,7 @@ def find_top_interactors(graph: dict) -> dict:
         interactors.append(
             {
                 "uid": e["source"],
-                "nickname": node.get("label", "未知"),
+                "nickname": node.get("label", "(unknown)"),
                 "comment_count": e["count"],
                 "weight": e["weight"],
                 "follower_count": node.get("follower_count", 0),
@@ -314,7 +313,7 @@ def find_top_interactors(graph: dict) -> dict:
 
     interactors.sort(key=lambda x: x["weight"], reverse=True)
 
-    # 评论者之间的互动
+    # Inter-commenter interactions
     peer_edges = [e for e in edges if not str(e["target"]).startswith("target:")]
     peer_edges.sort(key=lambda x: x["weight"], reverse=True)
 
@@ -333,49 +332,49 @@ def find_top_interactors(graph: dict) -> dict:
 
 
 def generate_report(graph: dict, communities: list, top_interactors: dict) -> str:
-    """生成文本报告"""
+    """Generate a text report."""
     stats = graph["stats"]
     target = graph["target_user"]
 
     lines = []
     lines.append("=" * 60)
-    lines.append("📊 评论关系拓扑分析报告")
+    lines.append("📊 Comment Relationship Topology Report")
     lines.append("=" * 60)
-    lines.append(f"目标用户: {target.get('nickname', '未知')}")
-    lines.append(f"总节点数: {stats['total_nodes']}")
-    lines.append(f"总关系边: {stats['total_edges']}")
-    lines.append(f"评论者数: {stats['total_commenters']}")
+    lines.append(f"Target user: {target.get('nickname', '(unknown)')}")
+    lines.append(f"Total nodes: {stats['total_nodes']}")
+    lines.append(f"Total edges: {stats['total_edges']}")
+    lines.append(f"Commenters: {stats['total_commenters']}")
     lines.append("")
 
-    # ── 高频互动者 ──
-    lines.append("─── 高频直接评论者 ───")
+    # Top interactors
+    lines.append("─── Top Direct Commenters ───")
     for i, c in enumerate(top_interactors.get("top_direct_commenters", [])[:15], 1):
         lines.append(
-            f"  {i:2d}. {c['nickname']}  ({c['comment_count']} 条评论, 粉丝 {c['follower_count']})"
+            f"  {i:2d}. {c['nickname']}  ({c['comment_count']} comments, {c['follower_count']} followers)"
         )
     lines.append("")
 
-    # ── 社群结构 ──
-    lines.append("─── 社群结构 ───")
+    # Community structure
+    lines.append("─── Community Structure ───")
     for community in communities:
         lines.append(f"  {community['name']} ({community['count']} 人)")
         for m in community["members"][:10]:
             lines.append(
-                f"    - {m['nickname']}  (评论 {m['comment_count']} 次, 粉丝 {m['follower_count']})"
+                f"    - {m['nickname']}  ({m['comment_count']} comments, {m['follower_count']} followers)"
             )
     lines.append("")
 
-    # ── KOL 发现 ──
+    # KOL discovery
     kols = [m for c in communities if "KOL" in c["name"] for m in c["members"]]
     if kols:
-        lines.append("─── 🌟 发现的 KOL / 意见领袖 ───")
+        lines.append("─── 🌟 Discovered KOLs ───")
         for m in kols:
             lines.append(
-                f"  - {m['nickname']} (粉丝 {m['follower_count']}, 评论 {m['comment_count']} 次)"
+                f"  - {m['nickname']} ({m['follower_count']} followers, {m['comment_count']} comments)"
             )
 
     lines.append("")
-    lines.append(f"报告生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append(f"Report generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     lines.append("=" * 60)
 
     return "\n".join(lines)
@@ -383,41 +382,41 @@ def generate_report(graph: dict, communities: list, top_interactors: dict) -> st
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python scripts/analyze/analyze_social_graph.py <sec_user_id_or_dir>")
-        print("示例: python scripts/analyze/analyze_social_graph.py MS4wLjABAAAA...")
-        print("      python scripts/analyze/analyze_social_graph.py data/comments/user123/")
+        print("Usage: python scripts/analyze/analyze_social_graph.py <sec_user_id_or_dir>")
+        print("Example: python scripts/analyze/analyze_social_graph.py MS4wLjABAAAA...")
+        print("         python scripts/analyze/analyze_social_graph.py data/comments/user123/")
         sys.exit(1)
 
     sec_user_id_or_dir = sys.argv[1]
 
     print("=" * 60)
-    print("🔗 评论关系拓扑分析")
+    print("🔗 Comment Relationship Topology Analysis")
     print("=" * 60)
 
-    # 加载数据
+    # Load data
     comments, target_user, data_dir = load_comments(sec_user_id_or_dir)
 
     if not comments:
-        print("❌ 没有评论数据可供分析")
+        print("❌ No comment data available for analysis")
         sys.exit(1)
 
-    # 构建关系图
-    print("\n🕸️  正在构建关系拓扑图...")
+    # Build relationship graph
+    print("\n🕸️  Building relationship graph...")
     graph = build_relation_graph(comments, target_user)
-    print(f"   节点: {graph['stats']['total_nodes']} 个用户")
-    print(f"   关系边: {graph['stats']['total_edges']} 条")
+    print(f"   Nodes: {graph['stats']['total_nodes']} users")
+    print(f"   Edges: {graph['stats']['total_edges']}")
 
-    # 社群发现
-    print("\n👥 正在分析社群结构...")
+    # Community detection
+    print("\n👥 Analyzing community structure...")
     communities = detect_communities(graph)
     for c in communities:
-        print(f"   {c['name']}: {c['count']} 人")
+        print(f"   {c['name']}: {c['count']} people")
 
-    # 高频互动者
-    print("\n⭐ 正在识别高频互动者...")
+    # Top interactors
+    print("\n⭐ Identifying top interactors...")
     top_interactors = find_top_interactors(graph)
-    print(f"   直接评论者 Top: {len(top_interactors['top_direct_commenters'])} 人")
-    print(f"   评论者间互动 Top: {len(top_interactors['top_peer_interactions'])} 对")
+    print(f"   Top direct commenters: {len(top_interactors['top_direct_commenters'])} users")
+    print(f"   Top peer interactions: {len(top_interactors['top_peer_interactions'])} pairs")
 
     # ── 保存结果 ──
     relations_dir = os.path.join(data_dir, "relations")
