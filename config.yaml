@@ -1,0 +1,37 @@
+# =============================================================================
+# Douyin/TikTok/Bilibili Crawler API - 配置文件
+# =============================================================================
+
+# 应用配置
+app:
+  title: "Douyin/TikTok/Bilibili Crawler API"
+  description: |
+    基于 Douyin_TikTok_Download_API 爬虫库构建的高性能异步数据爬取服务。
+    支持抖音、TikTok、Bilibili 三大平台的视频/图集数据解析与无水印下载。
+
+    ## 功能特点
+    - 🚀 基于 HybridCrawler 的混合解析引擎，自动识别平台
+    - 📦 支持单个/批量链接解析
+    - 🎯 无水印视频下载
+    - 🖼️ 图集图片下载
+    - 🔄 支持抖音分享口令、TikTok 分享文本等格式
+  version: "1.0.0"
+
+# 服务配置
+server:
+  host: "0.0.0.0"
+  port: 8000
+  docs_url: "/docs"
+  redoc_url: "/redoc"
+  download_path: "./data/temp"
+
+# 爬虫配置
+crawler:
+  # 请求超时（秒）
+  timeout: 30
+  # 最大重试次数
+  max_retries: 3
+  # 并发请求数
+  max_concurrent: 10
+  # User-Agent
+  user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"

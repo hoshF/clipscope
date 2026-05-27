@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>抖音推荐流变化趋势</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#f5f5f7;color:#1d1d1f;padding:24px}
+.header{text-align:center;margin-bottom:24px}
+.header h1{font-size:26px}
+.header p{color:#86868b;font-size:14px;margin-top:6px}
+.stats{display:flex;justify-content:center;gap:12px;margin-bottom:24px;flex-wrap:wrap}
+.stat-card{background:#fff;border-radius:12px;padding:14px 22px;text-align:center;min-width:100px}
+.stat-card .num{font-size:26px;font-weight:700;color:#0071e3}
+.stat-card .label{font-size:12px;color:#86868b;margin-top:4px}
+.card{background:#fff;border-radius:16px;padding:20px;max-width:1000px;margin:0 auto 20px}
+.card h2{font-size:16px;margin-bottom:14px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{text-align:left;padding:8px 12px;border-bottom:2px solid #e8e8ed;color:#86868b;font-weight:600}
+td{padding:8px 12px;border-bottom:1px solid #e8e8ed}
+.tag{display:inline-block;background:#e8f0fe;color:#0071e3;padding:2px 8px;border-radius:10px;font-size:12px;margin:1px}
+.empty{text-align:center;padding:60px 20px;color:#86868b}
+.empty h2{font-size:18px;color:#1d1d1f;margin-bottom:8px}
+.empty code{background:#e8e8ed;padding:2px 8px;border-radius:4px;font-size:13px}
+.error{text-align:center;padding:40px;color:#ff3b30}
+.loading{text-align:center;padding:40px;color:#86868b}
+.btn{display:inline-block;background:#0071e3;color:#fff;border:none;border-radius:20px;padding:8px 20px;font-size:14px;cursor:pointer;margin-top:10px}
+.footer{text-align:center;margin-top:24px;color:#86868b;font-size:12px}
+@media(prefers-color-scheme:dark){
+body{background:#1c1c1e;color:#f5f5f7}
+.stat-card,.card{background:#2c2c2e}
+.stat-card .num{color:#64a8ff}
+.tag{background:#1a3a6b;color:#64a8ff}
+th{color:#98989d;border-bottom-color:#3a3a3c}
+td{border-bottom-color:#3a3a3c}
+}
+.chart-wrap{overflow-x:auto;padding-bottom:8px}
+.chart-wrap canvas{min-width:600px}
+.chart-controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.chart-controls button{background:#f0f0f0;border:none;border-radius:16px;padding:4px 14px;font-size:12px;cursor:pointer;color:#555}
+.chart-controls button.active{background:#0071e3;color:#fff}
+.chart-controls button:hover:not(.active){background:#e0e0e0}
+@media(prefers-color-scheme:dark){
+.chart-controls button{background:#3a3a3c;color:#ccc}
+.chart-controls button:hover:not(.active){background:#48484a}
+}
+}
+</style>
+</head>
+<body>
+<div class="header">
+<h1>📊 抖音推荐流变化趋势</h1>
+<p>追踪算法推荐内容的演变</p>
+</div>
+
+<div id="stats" class="stats"></div>
+<div id="content"><div class="loading">⏳ 加载中...</div></div>
+<div class="footer"><p>数据存储在本地 · 每60秒自动刷新</p></div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+
+<script>
+const API = "http://127.0.0.1:8000/api/tracking";
+
+async function get(path) {
+    const r = await fetch(API + path);
+    const j = await r.json();
+    return j.data || j;
+}
+
+function fmtDate(d) { return d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6,8); }
+
+async function render() {
+    try {
+        const history = await get('/history');
+        const el = document.getElementById('content');
+        const statsEl = document.getElementById('stats');
+
+        if (!history || history.length === 0) {
+            el.innerHTML = '<div class="empty"><h2>📭 暂无数据</h2><p>采集器尚未采集到数据，请确保采集器在运行</p><p style="margin-top:10px"><code>python scripts/feed_collector.py --loop</code></p></div>';
+            return;
+        }
+
+        const days = history.length, snaps = history.reduce((s,h)=>s+h.snapshots,0), items = history.reduce((s,h)=>s+h.unique_items,0);
+        statsEl.innerHTML = '<div class="stat-card"><div class="num">'+days+'</div><div class="label">📅 采集天数</div></div><div class="stat-card"><div class="num">'+snaps+'</div><div class="label">📡 快照次数</div></div><div class="stat-card"><div class="num">'+items+'</div><div class="label">🎬 视频总数</div></div>';
+
+        let html = '';
+
+        // 每日概览表
+        html += '<div class="card"><h2>📋 每日采集概览</h2><table><tr><th>日期</th><th>快照</th><th>视频(去重)</th><th>热门话题</th></tr>';
+        for (const h of history.slice().reverse()) {
+            const detail = await get('/detail?date='+h.date);
+            const snaps = detail?.snapshots || [];
+            const tags = {};
+            for (const snap of snaps) {
+                for (const item of snap.items || []) {
+                    for (const tag of item.hashtags || []) {
+                        tags[tag] = (tags[tag]||0)+1;
+                    }
+                }
+            }
+            const topTags = Object.entries(tags).sort((a,b)=>b[1]-a[1]).slice(0,8);
+            html += '<tr><td>'+fmtDate(h.date)+'</td><td>'+h.snapshots+'</td><td>'+h.unique_items+'</td><td>'+(topTags.map(function(t){return '<span class="tag">#'+t[0]+'</span>';}).join('')||'—')+'</td></tr>';
+        }
+        html += '</table></div>';
+
+        // 最新采集预览
+        const latest = history[history.length-1];
+        const detail = await get('/detail?date='+latest.date);
+        const allSnaps = detail?.snapshots || [];
+        const lastSnap = allSnaps[allSnaps.length-1];
+        if (lastSnap) {
+            html += '<div class="card"><h2>📦 最近一次采集</h2><table><tr><th>描述</th><th>标签</th><th>作者</th><th>点赞</th></tr>';
+            for (const item of (lastSnap.items||[]).slice(0,15)) {
+                const tags = (item.hashtags||[]).map(function(t){return '<span class="tag">#'+t+'</span>';}).join(' ');
+                html += '<tr><td>'+(item.desc||'').slice(0,28)+'</td><td>'+(tags||'—')+'</td><td>'+(item.author_name||'—')+'</td><td>'+item.digg_count+'</td></tr>';
+            }
+            html += '</table><p style="margin-top:10px;font-size:12px;color:#86868b">采集于 '+lastSnap.captured_at_str+' · 共 '+lastSnap.count+' 条</p></div>';
+        }
+
+        // 趋势图
+        html += '<div class="card"><h2>📈 热门话题趋势</h2><div class="chart-controls" id="chartControls"></div><div class="chart-wrap"><canvas id="trendChart" style="min-height:300px"></canvas></div></div>';
+
+        el.innerHTML = html;
+
+        // 渲染趋势图
+        renderChart();
+
+    } catch(e) {
+        document.getElementById('content').innerHTML = '<div class="error"><p>❌ '+e.message+'</p><p style="font-size:13px;color:#86868b;margin-top:10px">确保 API 服务已启动</p><button class="btn" onclick="location.reload()">🔄 重试</button></div>';
+    }
+}
+
+let chartInstance = null;
+const COLORS = ['#0071e3','#34c759','#ff9500','#ff3b30','#af52de','#5ac8fa','#ff2d55','#5856d6','#00c7be','#ff6482','#32d9a5','#ffd60a','#bf5af2','#6c5ce7','#a2845e'];
+
+async function renderChart() {
+    try {
+        const statsData = await get('/stats');
+        if (!statsData || !statsData.trends || statsData.trends.length === 0) return;
+
+        const dates = statsData.trend_dates.map(function(d){ return d.slice(0,4)+'/'+d.slice(4,6)+'/'+d.slice(6,8); });
+        const trends = statsData.trends;
+
+        // 构建选择器
+        const controlsEl = document.getElementById('chartControls');
+        controlsEl.innerHTML = '';
+        const allBtn = document.createElement('button');
+        allBtn.textContent = '全部';
+        allBtn.className = 'active';
+        allBtn.dataset.mode = 'all';
+        controlsEl.appendChild(allBtn);
+
+        // 按频率排序后取前10个话题作为快捷按钮
+        const top10 = trends.slice(0,10);
+        top10.forEach(function(t,i){
+            const btn = document.createElement('button');
+            btn.textContent = '#'+t.tag;
+            btn.dataset.tag = t.tag;
+            controlsEl.appendChild(btn);
+        });
+
+        // 默认选前8个话题（避免图表太拥挤）
+        let selectedTags = trends.slice(0,8);
+
+        function updateChart(tags) {
+            if (chartInstance) chartInstance.destroy();
+            const ctx = document.getElementById('trendChart').getContext('2d');
+
+            const datasets = tags.map(function(t,i){
+                return {
+                    label: '#'+t.tag,
+                    data: t.points.map(function(p){ return p.count; }),
+                    borderColor: COLORS[i % COLORS.length],
+                    backgroundColor: COLORS[i % COLORS.length] + '22',
+                    fill: false,
+                    tension: 0.3,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    spanGaps: true,
+                };
+            });
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: { labels: dates, datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { boxWidth: 14, padding: 12, font: { size: 11 } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                title: function(items){ return items[0].label; }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 11 } }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0,
+                                font: { size: 11 }
+                            },
+                            grid: { color: '#e8e8ed' }
+                        }
+                    }
+                }
+            });
+        }
+
+        // 点击按钮切换话题
+        controlsEl.addEventListener('click', function(e){
+            if (e.target.tagName !== 'BUTTON') return;
+            const mode = e.target.dataset.mode;
+            controlsEl.querySelectorAll('button').forEach(function(b){ b.classList.remove('active'); });
+            e.target.classList.add('active');
+
+            if (mode === 'all') {
+                selectedTags = trends;
+            } else {
+                const tag = e.target.dataset.tag;
+                selectedTags = trends.filter(function(t){ return t.tag === tag; });
+            }
+            updateChart(selectedTags);
+        });
+
+        updateChart(selectedTags);
+    } catch(e) {
+        console.warn('趋势图加载失败:', e);
+    }
+}
+
+render();
+setInterval(render, 60000);
+</script>
+</body>
+</html>

@@ -1,0 +1,40 @@
+# ── Python ──
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+*.egg
+
+# ── 爬取数据（不提交到仓库） ──
+data/downloads/
+data/comments/
+data/tracking/
+data/temp/
+
+# ── Cookie（敏感凭证） ──
+cookies/
+
+# ── 日志 ──
+*.log
+data/tracking/*.err
+
+# ── 环境配置 ──
+.env
+.env.local
+
+# ── IDE ──
+.vscode/settings.json
+.vscode/launch.json
+.idea/
+*.swp
+*.swo
+*~
+
+# ── macOS ──
+.DS_Store
+
+# ── 第三方子模块（lib/ 是 git clone 的外部项目） ──
+lib/

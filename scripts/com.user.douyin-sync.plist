@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.douyin-sync</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/hoshf/Project/douyin-crawler-app/scripts/auto_sync.sh</string>
+    </array>
+
+    <!-- 每天 12:00、18:00、22:00 执行 -->
+    <key>StartCalendarInterval</key>
+    <array>
+        <dict>
+            <key>Hour</key>
+            <integer>12</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>18</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+        <dict>
+            <key>Hour</key>
+            <integer>22</integer>
+            <key>Minute</key>
+            <integer>0</integer>
+        </dict>
+    </array>
+
+    <!-- 开机/登录后立即执行一次 -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>ThrottleInterval</key>
+    <integer>0</integer>
+
+    <!-- 日志 -->
+    <key>StandardOutPath</key>
+    <string>/Users/hoshf/Project/douyin-crawler-app/data/tracking/launchd.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/hoshf/Project/douyin-crawler-app/data/tracking/launchd.err</string>
+
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>
