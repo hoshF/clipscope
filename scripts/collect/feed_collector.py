@@ -15,28 +15,38 @@ import sys
 import time
 from datetime import datetime
 
-LIB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib")
+LIB_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib"
+)
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 
+from urllib.parse import urlencode
+
 import httpx
-from crawlers.douyin.web.web_crawler import DouyinWebCrawler
 from crawlers.douyin.web.endpoints import DouyinAPIEndpoints
 from crawlers.douyin.web.models import BaseRequestModel
 from crawlers.douyin.web.utils import BogusManager
-from urllib.parse import urlencode
+from crawlers.douyin.web.web_crawler import DouyinWebCrawler
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TRACKING_DIR = os.path.join(ROOT, "data", "tracking")
 
 
 def _load_existing(date_str: str) -> set:
-    """加载当天已有的 aweme_id"""
+    """加载当天已记录的 aweme_id，避免重复采集。
+
+    Args:
+        date_str: 日期字符串，格式 YYYYMMDD。
+
+    Returns:
+        当天已有的 aweme_id 集合。
+    """
     path = os.path.join(TRACKING_DIR, f"feed_{date_str}.jsonl")
     if not os.path.exists(path):
         return set()
     seen = set()
-    with open(path, "r") as f:
+    with open(path) as f:
         for line in f:
             line = line.strip()
             if line:
@@ -45,13 +55,20 @@ def _load_existing(date_str: str) -> set:
                     for item in record.get("items", []):
                         if item.get("aweme_id"):
                             seen.add(item["aweme_id"])
-                except:
+                except Exception:
                     pass
     return seen
 
 
-def save_snapshot(items: list, date_str: str):
-    """保存快照到 JSONL"""
+def save_snapshot(items: list, date_str: str) -> None:
+    """将推荐流快照追加写入 JSONL 文件。
+
+    每条记录包含采集时间戳和视频列表，追加到当天文件末尾。
+
+    Args:
+        items: 视频条目列表，每个条目包含 aweme_id、desc 等字段。
+        date_str: 日期字符串，格式 YYYYMMDD。
+    """
     os.makedirs(TRACKING_DIR, exist_ok=True)
     path = os.path.join(TRACKING_DIR, f"feed_{date_str}.jsonl")
     record = {
@@ -65,7 +82,15 @@ def save_snapshot(items: list, date_str: str):
 
 
 async def fetch_feed() -> list:
-    """获取推荐 Feed"""
+    """从抖音推荐接口获取 Feed 数据。
+
+    使用 DouyinWebCrawler 获取推荐页视频列表，
+    每次最多返回 30 条，包含视频元数据和话题标签。
+
+    Returns:
+        推荐视频条目列表，每个条目包含 aweme_id、desc、hashtags 等字段。
+        网络异常或解析失败时返回空列表。
+    """
     crawler = DouyinWebCrawler()
     kwargs = await crawler.get_douyin_headers()
     headers = kwargs["headers"]
@@ -73,7 +98,10 @@ async def fetch_feed() -> list:
 
     transport = httpx.AsyncHTTPTransport(retries=3)
     async with httpx.AsyncClient(
-        headers=headers, proxies=proxies, timeout=httpx.Timeout(15), transport=transport,
+        headers=headers,
+        proxies=proxies,
+        timeout=httpx.Timeout(15),
+        transport=transport,
     ) as client:
         params = BaseRequestModel().model_dump()
         params["msToken"] = ""
@@ -90,20 +118,22 @@ async def fetch_feed() -> list:
 
         items = []
         for item in aweme_list:
-            items.append({
-                "aweme_id": item.get("aweme_id", ""),
-                "desc": (item.get("desc") or "")[:80],
-                "hashtags": [
-                    t.get("hashtag_name", "")
-                    for t in (item.get("text_extra") or [])
-                    if t.get("hashtag_name")
-                ],
-                "author_name": (item.get("author") or {}).get("nickname", ""),
-                "author_id": (item.get("author") or {}).get("unique_id", ""),
-                "digg_count": (item.get("statistics") or {}).get("digg_count", 0),
-                "duration": (item.get("video") or {}).get("duration", 0),
-                "aweme_type": item.get("aweme_type", 0),
-            })
+            items.append(
+                {
+                    "aweme_id": item.get("aweme_id", ""),
+                    "desc": (item.get("desc") or "")[:80],
+                    "hashtags": [
+                        t.get("hashtag_name", "")
+                        for t in (item.get("text_extra") or [])
+                        if t.get("hashtag_name")
+                    ],
+                    "author_name": (item.get("author") or {}).get("nickname", ""),
+                    "author_id": (item.get("author") or {}).get("unique_id", ""),
+                    "digg_count": (item.get("statistics") or {}).get("digg_count", 0),
+                    "duration": (item.get("video") or {}).get("duration", 0),
+                    "aweme_type": item.get("aweme_type", 0),
+                }
+            )
         return items
 
 
@@ -111,7 +141,7 @@ async def collect_once():
     """采集一次并保存"""
     date_str = datetime.now().strftime("%Y%m%d")
     existing = _load_existing(date_str)
-    print(f"[FeedCollector] 📡 正在采集推荐数据...", end=" ")
+    print("[FeedCollector] 📡 正在采集推荐数据...", end=" ")
 
     try:
         items = await fetch_feed()
@@ -141,7 +171,7 @@ async def main():
 
     if loop_mode:
         print(f"[FeedCollector] 🔄 持续采集模式，每 {interval} 分钟一次")
-        print(f"[FeedCollector] 按 Ctrl+C 停止\n")
+        print("[FeedCollector] 按 Ctrl+C 停止\n")
         while True:
             await collect_once()
             print(f"[FeedCollector] 等待 {interval} 分钟后下一次采集...\n")

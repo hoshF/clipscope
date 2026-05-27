@@ -8,7 +8,7 @@
 
 使用方式：
 python scripts/analyze/analyze_commenter_value.py <sec_user_id_or_dir> [--top N]
-    
+
 示例：
     # 分析 Top 20 活跃评论者
     python scripts/analyze/analyze_commenter_value.py MS4wLjABAAAA...
@@ -27,21 +27,16 @@ python scripts/analyze/analyze_commenter_value.py <sec_user_id_or_dir> [--top N]
 import asyncio
 import json
 import os
-import sys
-import re
-import time
 import random
-from collections import Counter, defaultdict
+import sys
+from collections import Counter
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 # data_utils 必须在 crawlers 之前导入（它负责添加 lib/ 到 sys.path）
-from utils import data_utils
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler
-
-
-
+from utils import data_utils
 
 
 def load_comments(sec_user_id_or_dir: str) -> tuple:
@@ -55,7 +50,9 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
             if os.path.isdir(guess):
                 data_dir = guess
             else:
-                data_dir = os.path.join(data_utils.PROJECT_ROOT, "data", "comments", sec_user_id_or_dir[:16])
+                data_dir = os.path.join(
+                    data_utils.PROJECT_ROOT, "data", "comments", sec_user_id_or_dir[:16]
+                )
 
     comments_path = os.path.join(data_dir, "comments.json")
     meta_path = os.path.join(data_dir, "_meta.json")
@@ -64,23 +61,22 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
         print(f"❌ 未找到评论数据: {comments_path}")
         sys.exit(1)
 
-    with open(comments_path, "r", encoding="utf-8") as f:
+    with open(comments_path, encoding="utf-8") as f:
         data = json.load(f)
 
     comments = data.get("comments", [])
     target_user = {}
     if os.path.exists(meta_path):
-        with open(meta_path, "r", encoding="utf-8") as f:
+        with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
             target_user = meta.get("target_user", {})
 
     return comments, target_user, data_dir
 
 
-
-
-
-async def probe_commenter(crawler: DouyinWebCrawler, sec_uid: str, nickname: str, comment_count: int) -> dict:
+async def probe_commenter(
+    crawler: DouyinWebCrawler, sec_uid: str, nickname: str, comment_count: int
+) -> dict:
     """
     探测一个评论者的用户空间。
     返回结构化信息，异常时返回基础数据。
@@ -102,7 +98,11 @@ async def probe_commenter(crawler: DouyinWebCrawler, sec_uid: str, nickname: str
     # 1. 获取用户个人信息
     try:
         profile = await crawler.handler_user_profile(sec_uid)
-        user_data = profile.get("user", {}) or profile.get("user_info", {}) or profile.get("data", {}).get("user", {})
+        user_data = (
+            profile.get("user", {})
+            or profile.get("user_info", {})
+            or profile.get("data", {}).get("user", {})
+        )
         result["follower_count"] = user_data.get("follower_count", 0) or 0
         result["following_count"] = user_data.get("following_count", 0) or 0
         result["total_favorited"] = user_data.get("total_favorited", 0) or 0
@@ -116,9 +116,7 @@ async def probe_commenter(crawler: DouyinWebCrawler, sec_uid: str, nickname: str
     # 2. 采样最近视频的评论热度
     if result["aweme_count"] > 0:
         try:
-            posts = await crawler.fetch_user_post_videos(
-                sec_user_id=sec_uid, max_cursor=0, count=5
-            )
+            posts = await crawler.fetch_user_post_videos(sec_user_id=sec_uid, max_cursor=0, count=5)
             aweme_list = posts.get("aweme_list", [])
             if aweme_list:
                 comment_counts = []
@@ -127,7 +125,9 @@ async def probe_commenter(crawler: DouyinWebCrawler, sec_uid: str, nickname: str
                     cc = stat.get("comment_count", 0) or 0
                     comment_counts.append(cc)
                 if comment_counts:
-                    result["recent_video_comment_avg"] = round(sum(comment_counts) / len(comment_counts), 1)
+                    result["recent_video_comment_avg"] = round(
+                        sum(comment_counts) / len(comment_counts), 1
+                    )
                     result["sample_videos"] = len(comment_counts)
         except Exception as e:
             if result["error"] is None:
@@ -139,7 +139,7 @@ async def probe_commenter(crawler: DouyinWebCrawler, sec_uid: str, nickname: str
 def compute_value_score(probed: dict) -> float:
     """
     计算评论者的"数据爬取价值"评分 (0-100)。
-    
+
     权重：
     - 粉丝数 30%：粉丝越多越有价值（KOL效应）
     - 作品数 20%：作品越多可采集内容越多
@@ -288,10 +288,12 @@ async def main():
         probed_list.append(probed)
 
         # 输出摘要
-        print(f"    📊 粉丝 {probed['follower_count']} | "
-              f"作品 {probed['aweme_count']} | "
-              f"获赞 {probed['total_favorited']} | "
-              f"均评 {probed['recent_video_comment_avg']}")
+        print(
+            f"    📊 粉丝 {probed['follower_count']} | "
+            f"作品 {probed['aweme_count']} | "
+            f"获赞 {probed['total_favorited']} | "
+            f"均评 {probed['recent_video_comment_avg']}"
+        )
         print(f"    💎 价值评分: {score}/100 → {probed['value_label']}")
         print(f"    📝 签名: {probed['signature'][:50]}")
         print()
@@ -310,9 +312,11 @@ async def main():
     print("-" * 70)
     for i, p in enumerate(probed_list, 1):
         nick = p["nickname"][:18]
-        print(f"{i:>4} {nick:<20} {p['value_score']:>6} "
-              f"{p['follower_count']:>8} {p['aweme_count']:>6} "
-              f"{p['recent_video_comment_avg']:>6} {p['value_label']}")
+        print(
+            f"{i:>4} {nick:<20} {p['value_score']:>6} "
+            f"{p['follower_count']:>8} {p['aweme_count']:>6} "
+            f"{p['recent_video_comment_avg']:>6} {p['value_label']}"
+        )
 
     # ── 推荐爬取列表 ──
     high_value = [p for p in probed_list if p["value_score"] >= 40]
@@ -321,15 +325,19 @@ async def main():
     print()
     print("─── 🎯 推荐爬取建议 ───")
     if high_value:
-        print(f"  🌟🌟🌟 高价值 (评分≥70):")
+        print("  🌟🌟🌟 高价值 (评分≥70):")
         for p in high_value:
-            print(f"    · {p['nickname']} (评分 {p['value_score']}, "
-                  f"粉丝 {p['follower_count']}, 作品 {p['aweme_count']})")
+            print(
+                f"    · {p['nickname']} (评分 {p['value_score']}, "
+                f"粉丝 {p['follower_count']}, 作品 {p['aweme_count']})"
+            )
     if medium_value:
-        print(f"  🌟🌟 有价值 (评分20-69):")
+        print("  🌟🌟 有价值 (评分20-69):")
         for p in medium_value[:10]:
-            print(f"    · {p['nickname']} (评分 {p['value_score']}, "
-                  f"粉丝 {p['follower_count']}, 作品 {p['aweme_count']})")
+            print(
+                f"    · {p['nickname']} (评分 {p['value_score']}, "
+                f"粉丝 {p['follower_count']}, 作品 {p['aweme_count']})"
+            )
     low_count = len([p for p in probed_list if p["value_score"] < 20])
     if low_count:
         print(f"  💤 低价值 (评分<20): {low_count} 人")
@@ -349,15 +357,23 @@ async def main():
         "top_commenters": probed_list,
         "recommendations": {
             "high_value": [
-                {"nickname": p["nickname"], "sec_uid": p["sec_uid"],
-                 "score": p["value_score"], "follower_count": p["follower_count"],
-                 "aweme_count": p["aweme_count"]}
+                {
+                    "nickname": p["nickname"],
+                    "sec_uid": p["sec_uid"],
+                    "score": p["value_score"],
+                    "follower_count": p["follower_count"],
+                    "aweme_count": p["aweme_count"],
+                }
                 for p in high_value
             ],
             "medium_value": [
-                {"nickname": p["nickname"], "sec_uid": p["sec_uid"],
-                 "score": p["value_score"], "follower_count": p["follower_count"],
-                 "aweme_count": p["aweme_count"]}
+                {
+                    "nickname": p["nickname"],
+                    "sec_uid": p["sec_uid"],
+                    "score": p["value_score"],
+                    "follower_count": p["follower_count"],
+                    "aweme_count": p["aweme_count"],
+                }
                 for p in medium_value[:20]
             ],
         },

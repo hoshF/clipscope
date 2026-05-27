@@ -13,9 +13,6 @@
 import json
 import os
 import sys
-import tempfile
-import subprocess
-import shutil
 from pathlib import Path
 
 UPSTREAM_REPO = "Evil0ctal/Douyin_TikTok_Download_API"
@@ -26,16 +23,34 @@ LIB_DIR = os.path.join(ROOT, "lib")
 
 # 无意义的文件/目录模式（过滤掉，不展示差异）
 IGNORE_DIRS = {
-    "__pycache__", ".github", ".idea", ".vscode",
-    "Screenshots", "logo", "bash", "chrome-cookie-sniffer", "daemon",
+    "__pycache__",
+    ".github",
+    ".idea",
+    ".vscode",
+    "Screenshots",
+    "logo",
+    "bash",
+    "chrome-cookie-sniffer",
+    "daemon",
 }
 IGNORE_FILES = {
-    ".gitignore", ".gitattributes", "README.md", "README.en.md",
-    "LICENSE", ".env", ".env.sample", ".dockerignore", "Dockerfile",
-    "Procfile", "start.py", "start.sh", "docker-compose.yml",
+    ".gitignore",
+    ".gitattributes",
+    "README.md",
+    "README.en.md",
+    "LICENSE",
+    ".env",
+    ".env.sample",
+    ".dockerignore",
+    "Dockerfile",
+    "Procfile",
+    "start.py",
+    "start.sh",
+    "docker-compose.yml",
     ".DS_Store",
 }
 IGNORE_EXTENSIONS = {".pyc", ".pyo", ".log"}
+
 
 def should_ignore(file_path: str) -> bool:
     """判断文件是否应忽略"""
@@ -62,12 +77,14 @@ def is_low_priority(file_path: str) -> bool:
 def fetch_upstream_tree() -> dict:
     """
     通过 GitHub API 获取上游仓库的文件列表及其原始内容 URL。
-    
+
     返回 {file_path: download_url} 映射。
     """
     import urllib.request
 
-    api_url = f"https://api.github.com/repos/{UPSTREAM_REPO}/git/trees/{UPSTREAM_BRANCH}?recursive=1"
+    api_url = (
+        f"https://api.github.com/repos/{UPSTREAM_REPO}/git/trees/{UPSTREAM_BRANCH}?recursive=1"
+    )
 
     try:
         with urllib.request.urlopen(api_url, timeout=15) as resp:
@@ -114,7 +131,7 @@ def get_local_files() -> dict:
 def check_updates(brief: bool = False) -> list:
     """
     检查上游更新，返回变更文件列表。
-    
+
     每个元素: {"file": str, "status": "added"|"modified"|"deleted", "low_priority": bool}
     """
     print(f"🔍 检查上游仓库更新: {UPSTREAM_REPO} @ {UPSTREAM_BRANCH}")
@@ -127,37 +144,43 @@ def check_updates(brief: bool = False) -> list:
 
     # 检查上游新增或修改的文件
     for fpath, url in upstream_files.items():
-        local_path = os.path.join(LIB_DIR, fpath)
         if fpath not in local_files:
-            changes.append({
-                "file": fpath,
-                "status": "added",
-                "low_priority": is_low_priority(fpath),
-            })
+            changes.append(
+                {
+                    "file": fpath,
+                    "status": "added",
+                    "low_priority": is_low_priority(fpath),
+                }
+            )
         else:
             # 比较内容
             local_content = local_files[fpath]
             try:
                 import urllib.request
+
                 with urllib.request.urlopen(url, timeout=10) as resp:
                     upstream_content = resp.read().decode("utf-8")
                 if local_content != upstream_content:
-                    changes.append({
-                        "file": fpath,
-                        "status": "modified",
-                        "low_priority": is_low_priority(fpath),
-                    })
+                    changes.append(
+                        {
+                            "file": fpath,
+                            "status": "modified",
+                            "low_priority": is_low_priority(fpath),
+                        }
+                    )
             except Exception:
                 pass  # 网络问题跳过
 
     # 检查本地有但上游已删除的文件
     for fpath in local_files:
         if fpath not in upstream_files:
-            changes.append({
-                "file": fpath,
-                "status": "deleted",
-                "low_priority": is_low_priority(fpath),
-            })
+            changes.append(
+                {
+                    "file": fpath,
+                    "status": "deleted",
+                    "low_priority": is_low_priority(fpath),
+                }
+            )
 
     # 排序：低优先级在后
     changes.sort(key=lambda x: (x["low_priority"], x["file"]))
@@ -174,6 +197,7 @@ def show_diff(file_path: str):
 
     try:
         import urllib.request
+
         with urllib.request.urlopen(upstream_url, timeout=10) as resp:
             upstream_content = resp.read().decode("utf-8").splitlines(keepends=True)
     except Exception as e:
@@ -182,21 +206,24 @@ def show_diff(file_path: str):
 
     if not os.path.exists(local_path):
         # 新增文件
-        print(f"  📄 上游新增文件（本地无此文件）:")
+        print("  📄 上游新增文件（本地无此文件）:")
         for line in upstream_content[:30]:
             print(f"    + {line.rstrip()}")
         if len(upstream_content) > 30:
             print(f"    ... (共 {len(upstream_content)} 行)")
         return
 
-    with open(local_path, "r", encoding="utf-8") as f:
+    with open(local_path, encoding="utf-8") as f:
         local_content = f.readlines()
 
     # 简单的行对比
     import difflib
+
     diff = difflib.unified_diff(
-        local_content, upstream_content,
-        fromfile=f"a/{file_path}", tofile=f"b/{file_path}",
+        local_content,
+        upstream_content,
+        fromfile=f"a/{file_path}",
+        tofile=f"b/{file_path}",
         lineterm="",
     )
     diff_lines = list(diff)
@@ -208,7 +235,7 @@ def show_diff(file_path: str):
         if len(diff_lines) > 60:
             print(f"  ... (还有 {len(diff_lines) - 60} 行差异)")
     else:
-        print(f"  (内容相同)")
+        print("  (内容相同)")
 
 
 def main():
@@ -218,7 +245,9 @@ def main():
         description="检查上游仓库更新并对比本地 lib/ 差异",
     )
     parser.add_argument("--brief", action="store_true", help="仅列出变更文件，不显示详细 diff")
-    parser.add_argument("--apply", type=str, metavar="<file>", help="将上游的指定文件应用到本地 lib/")
+    parser.add_argument(
+        "--apply", type=str, metavar="<file>", help="将上游的指定文件应用到本地 lib/"
+    )
 
     args = parser.parse_args()
 
@@ -230,6 +259,7 @@ def main():
         local_path = os.path.join(LIB_DIR, args.apply)
         try:
             import urllib.request
+
             with urllib.request.urlopen(upstream_url, timeout=10) as resp:
                 content = resp.read().decode("utf-8")
         except Exception as e:
@@ -271,9 +301,9 @@ def main():
             print()
 
     # 使用提示
-    print(f"\n💡 提示:")
-    print(f"   查看单个文件 diff:  python scripts/utils/check_upstream.py --brief")
-    print(f"   应用单个文件:      python scripts/utils/check_upstream.py --apply <文件路径>")
+    print("\n💡 提示:")
+    print("   查看单个文件 diff:  python scripts/utils/check_upstream.py --brief")
+    print("   应用单个文件:      python scripts/utils/check_upstream.py --apply <文件路径>")
 
 
 if __name__ == "__main__":

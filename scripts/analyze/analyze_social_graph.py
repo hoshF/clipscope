@@ -6,11 +6,11 @@
 
 使用方式：
     python scripts/analyze/analyze_social_graph.py <sec_user_id_or_dir>
-    
+
 示例：
     # 分析指定用户的评论关系
     python scripts/analyze/analyze_social_graph.py MS4wLjABAAAA...
-    
+
     # 指定数据目录
     python scripts/analyze/analyze_social_graph.py data/comments/user123/
 
@@ -26,21 +26,18 @@
 import json
 import os
 import sys
-from collections import defaultdict, Counter
+from collections import Counter, defaultdict
 from datetime import datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from utils import data_utils
-from utils.data_utils import PROJECT_ROOT as ROOT
-
-
 
 
 def load_comments(sec_user_id_or_dir: str) -> tuple:
     """
     加载评论数据。
-    
+
     返回 (comments_list, target_user_info)
     """
     # 判断是 sec_user_id 还是目录路径
@@ -54,23 +51,25 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
             if os.path.isdir(guess):
                 data_dir = guess
             else:
-                data_dir = os.path.join(data_utils.PROJECT_ROOT, "data", "comments", sec_user_id_or_dir[:16])
+                data_dir = os.path.join(
+                    data_utils.PROJECT_ROOT, "data", "comments", sec_user_id_or_dir[:16]
+                )
 
     comments_path = os.path.join(data_dir, "comments.json")
     meta_path = os.path.join(data_dir, "_meta.json")
 
     if not os.path.exists(comments_path):
         print(f"❌ 未找到评论数据: {comments_path}")
-        print(f"   请先运行: python scripts/collect_comments.py <URL>")
+        print("   请先运行: python scripts/collect_comments.py <URL>")
         sys.exit(1)
 
-    with open(comments_path, "r", encoding="utf-8") as f:
+    with open(comments_path, encoding="utf-8") as f:
         data = json.load(f)
 
     comments = data.get("comments", [])
     target_user = {}
     if os.path.exists(meta_path):
-        with open(meta_path, "r", encoding="utf-8") as f:
+        with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
             target_user = meta.get("target_user", {})
 
@@ -80,25 +79,22 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
     return comments, target_user, data_dir
 
 
-
-
-
 def build_relation_graph(comments: list, target_user: dict) -> dict:
     """
     构建评论互动关系图。
-    
+
     节点: 所有参与互动的用户
     边: 用户之间的评论/回复关系
-    
+
     边的权重计算：
       - 直接评论目标用户: weight += 1.0
       - 回复其他评论者: weight += 0.5
       - 同一视频下出现（共现）: weight += 0.1
     """
     # ── 节点统计 ──
-    users = {}       # uid -> user_info
-    user_videos = defaultdict(set)   # uid -> set of aweme_ids
-    user_comment_count = Counter()   # uid -> total comments
+    users = {}  # uid -> user_info
+    user_videos = defaultdict(set)  # uid -> set of aweme_ids
+    user_comment_count = Counter()  # uid -> total comments
 
     # ── 边统计 ──
     # relation_edges: (from_uid, to_uid) -> {weight, interactions}
@@ -110,7 +106,6 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
     for c in comments:
         user = c.get("user", {})
         uid = user.get("uid", "")
-        nickname = user.get("nickname", "未知")
         aweme_id = c.get("aweme_id", "")
         cid = c.get("cid", "")
         reply_to_cid = c.get("reply_to_cid")
@@ -136,22 +131,26 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
             edge_key = (uid, f"target:{target_uid}") if target_uid else (uid, "__target__")
             edges[edge_key]["weight"] += 1.0
             edges[edge_key]["count"] += 1
-            edges[edge_key]["interactions"].append({
-                "type": "comment_on_target",
-                "aweme_id": aweme_id,
-                "comment_id": cid,
-            })
+            edges[edge_key]["interactions"].append(
+                {
+                    "type": "comment_on_target",
+                    "aweme_id": aweme_id,
+                    "comment_id": cid,
+                }
+            )
 
         # 2. 回复其他评论者
         if reply_to_uid and reply_to_uid != uid:
             edge_key = (uid, reply_to_uid)
             edges[edge_key]["weight"] += 0.5
             edges[edge_key]["count"] += 1
-            edges[edge_key]["interactions"].append({
-                "type": "reply",
-                "aweme_id": aweme_id,
-                "comment_id": cid,
-            })
+            edges[edge_key]["interactions"].append(
+                {
+                    "type": "reply",
+                    "aweme_id": aweme_id,
+                    "comment_id": cid,
+                }
+            )
 
     # ── 构建输出格式 ──
     # 节点列表: 所有出现过的用户 + 目标用户
@@ -159,39 +158,45 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
     nodes = []
 
     # 目标用户节点
-    nodes.append({
-        "id": target_node_id,
-        "label": target_nickname,
-        "type": "target",
-        "uid": target_uid,
-        "follower_count": target_user.get("follower_count", 0),
-    })
+    nodes.append(
+        {
+            "id": target_node_id,
+            "label": target_nickname,
+            "type": "target",
+            "uid": target_uid,
+            "follower_count": target_user.get("follower_count", 0),
+        }
+    )
 
     # 评论者节点
     for uid, info in users.items():
-        nodes.append({
-            "id": uid,
-            "label": info.get("nickname", "未知"),
-            "type": "commenter",
-            "uid": uid,
-            "comment_count": user_comment_count[uid],
-            "video_count": len(user_videos[uid]),
-            "follower_count": info.get("follower_count", 0),
-            "following_count": info.get("following_count", 0),
-        })
+        nodes.append(
+            {
+                "id": uid,
+                "label": info.get("nickname", "未知"),
+                "type": "commenter",
+                "uid": uid,
+                "comment_count": user_comment_count[uid],
+                "video_count": len(user_videos[uid]),
+                "follower_count": info.get("follower_count", 0),
+                "following_count": info.get("following_count", 0),
+            }
+        )
 
     # 边列表
     edge_list = []
     for (from_uid, to_uid), data in edges.items():
         if data["count"] < 2:
             continue  # 过滤单次互动，减少噪音
-        edge_list.append({
-            "source": from_uid,
-            "target": to_uid,
-            "weight": round(data["weight"], 1),
-            "count": data["count"],
-            "interactions": data["interactions"][:10],  # 只保留最近10条
-        })
+        edge_list.append(
+            {
+                "source": from_uid,
+                "target": to_uid,
+                "weight": round(data["weight"], 1),
+                "count": data["count"],
+                "interactions": data["interactions"][:10],  # 只保留最近10条
+            }
+        )
 
     # 按权重排序
     edge_list.sort(key=lambda x: x["weight"], reverse=True)
@@ -214,7 +219,7 @@ def build_relation_graph(comments: list, target_user: dict) -> dict:
 def detect_communities(graph: dict) -> list:
     """
     基于评论共现关系发现社群。
-    
+
     策略：如果两个评论者在同一视频下都发表过评论，则存在共现关系。
     通过共现频率聚类，发现"小圈子"。
     """
@@ -269,11 +274,17 @@ def detect_communities(graph: dict) -> list:
                 normal.append(entry)
 
         if kols:
-            communities.append({"name": "🌟 KOL / 意见领袖", "members": kols[:20], "count": len(kols)})
+            communities.append(
+                {"name": "🌟 KOL / 意见领袖", "members": kols[:20], "count": len(kols)}
+            )
         if core:
-            communities.append({"name": "💬 核心粉丝 / 活跃互动者", "members": core[:30], "count": len(core)})
+            communities.append(
+                {"name": "💬 核心粉丝 / 活跃互动者", "members": core[:30], "count": len(core)}
+            )
         if normal:
-            communities.append({"name": "👥 普通粉丝", "members": normal[:30], "count": len(normal)})
+            communities.append(
+                {"name": "👥 普通粉丝", "members": normal[:30], "count": len(normal)}
+            )
 
     return communities
 
@@ -291,13 +302,15 @@ def find_top_interactors(graph: dict) -> dict:
     interactors = []
     for e in target_edges:
         node = nodes_map.get(e["source"], {})
-        interactors.append({
-            "uid": e["source"],
-            "nickname": node.get("label", "未知"),
-            "comment_count": e["count"],
-            "weight": e["weight"],
-            "follower_count": node.get("follower_count", 0),
-        })
+        interactors.append(
+            {
+                "uid": e["source"],
+                "nickname": node.get("label", "未知"),
+                "comment_count": e["count"],
+                "weight": e["weight"],
+                "follower_count": node.get("follower_count", 0),
+            }
+        )
 
     interactors.sort(key=lambda x: x["weight"], reverse=True)
 
@@ -326,7 +339,7 @@ def generate_report(graph: dict, communities: list, top_interactors: dict) -> st
 
     lines = []
     lines.append("=" * 60)
-    lines.append(f"📊 评论关系拓扑分析报告")
+    lines.append("📊 评论关系拓扑分析报告")
     lines.append("=" * 60)
     lines.append(f"目标用户: {target.get('nickname', '未知')}")
     lines.append(f"总节点数: {stats['total_nodes']}")
@@ -337,8 +350,9 @@ def generate_report(graph: dict, communities: list, top_interactors: dict) -> st
     # ── 高频互动者 ──
     lines.append("─── 高频直接评论者 ───")
     for i, c in enumerate(top_interactors.get("top_direct_commenters", [])[:15], 1):
-        lines.append(f"  {i:2d}. {c['nickname']}  ({c['comment_count']} 条评论, "
-                      f"粉丝 {c['follower_count']})")
+        lines.append(
+            f"  {i:2d}. {c['nickname']}  ({c['comment_count']} 条评论, 粉丝 {c['follower_count']})"
+        )
     lines.append("")
 
     # ── 社群结构 ──
@@ -346,8 +360,9 @@ def generate_report(graph: dict, communities: list, top_interactors: dict) -> st
     for community in communities:
         lines.append(f"  {community['name']} ({community['count']} 人)")
         for m in community["members"][:10]:
-            lines.append(f"    - {m['nickname']}  "
-                          f"(评论 {m['comment_count']} 次, 粉丝 {m['follower_count']})")
+            lines.append(
+                f"    - {m['nickname']}  (评论 {m['comment_count']} 次, 粉丝 {m['follower_count']})"
+            )
     lines.append("")
 
     # ── KOL 发现 ──
@@ -355,8 +370,9 @@ def generate_report(graph: dict, communities: list, top_interactors: dict) -> st
     if kols:
         lines.append("─── 🌟 发现的 KOL / 意见领袖 ───")
         for m in kols:
-            lines.append(f"  - {m['nickname']} (粉丝 {m['follower_count']}, "
-                          f"评论 {m['comment_count']} 次)")
+            lines.append(
+                f"  - {m['nickname']} (粉丝 {m['follower_count']}, 评论 {m['comment_count']} 次)"
+            )
 
     lines.append("")
     lines.append(f"报告生成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")

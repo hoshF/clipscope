@@ -7,8 +7,9 @@ Douyin/TikTok/Bilibili 数据爬取 API 服务
 
 import os
 import sys
-import yaml
+
 import uvicorn
+import yaml
 
 # ── 将 lib (Douyin_TikTok_Download_API) 加入 Python 路径 ──
 LIB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
@@ -22,8 +23,10 @@ from fastapi.staticfiles import StaticFiles
 from app.api.router import api_router
 
 # ── 加载配置文件 ──
-config_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml")
-with open(config_path, "r", encoding="utf-8") as f:
+config_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml"
+)
+with open(config_path, encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 # ── 创建 FastAPI 应用 ──
@@ -48,7 +51,9 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api")
 
 # ── 静态文件（下载目录 & 看板） ──
-download_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "temp")
+download_path = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "temp"
+)
 os.makedirs(download_path, exist_ok=True)
 app.mount("/downloads", StaticFiles(directory=download_path), name="downloads")
 
@@ -58,7 +63,12 @@ app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 @app.get("/", summary="服务状态检查")
-async def root():
+async def root() -> dict:
+    """返回服务基本信息，包括版本号和文档地址。
+
+    Returns:
+        dict: 包含服务名、版本、文档链接的字典。
+    """
     return {
         "service": "Douyin/TikTok/Bilibili Crawler API",
         "version": config["app"]["version"],
@@ -68,7 +78,12 @@ async def root():
 
 
 @app.get("/health", summary="健康检查")
-async def health_check():
+async def health_check() -> dict:
+    """健康检查接口，用于监控服务是否正常运行。
+
+    Returns:
+        dict: {"status": "ok"}。
+    """
     return {"status": "ok"}
 
 

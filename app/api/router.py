@@ -6,13 +6,12 @@ API 路由聚合
 
 from fastapi import APIRouter
 
+from app.api.endpoints.downloader import router as downloader_router
+
 # ── 从 lib 中导入各平台爬虫路由 ──
 # 注意: lib 已在 app/main.py 中被加入 sys.path
 from app.api.endpoints.parser import router as parser_router
-from app.api.endpoints.downloader import router as downloader_router
 from app.api.endpoints.tracking import router as tracking_router
-
-from crawlers.hybrid.hybrid_crawler import HybridCrawler
 
 api_router = APIRouter()
 
@@ -59,7 +58,9 @@ except ImportError:
 try:
     from app.api.endpoints.bilibili_web import router as bilibili_web_router
 
-    api_router.include_router(bilibili_web_router, prefix="/bilibili/web", tags=["Bilibili Web API"])
+    api_router.include_router(
+        bilibili_web_router, prefix="/bilibili/web", tags=["Bilibili Web API"]
+    )
 except ImportError:
     pass
 

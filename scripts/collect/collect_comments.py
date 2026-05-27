@@ -6,10 +6,10 @@
 
 使用方式：
     python scripts/collect_comments.py <用户主页URL>
-    
+
 示例：
     python scripts/collect_comments.py "https://www.douyin.com/user/MS4wLjABAAAA..."
-    
+
 可选参数：
     --max-posts N      只采集最近 N 个作品的评论（默认全部）
     --max-comments N   每个作品最多采集 N 条评论（默认全部）
@@ -29,18 +29,18 @@
 import asyncio
 import json
 import os
-import sys
-import re
-import time
 import random
-from datetime import datetime, timezone
-from typing import Optional
+import re
+import sys
+import time
+from datetime import UTC, datetime
 
-LIB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib")
+LIB_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib"
+)
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 
-import httpx
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -50,6 +50,7 @@ COMMENTS_DIR = os.path.join(ROOT, "data", "comments")
 # ═══════════════════════════════════════════════════════════════════
 # 辅助函数
 # ═══════════════════════════════════════════════════════════════════
+
 
 def extract_sec_user_id(url: str) -> str:
     """从抖音用户主页 URL 中提取 sec_user_id"""
@@ -90,7 +91,7 @@ def load_existing_comments(user_dir: str) -> dict:
     if not os.path.exists(comments_path):
         return {"videos": {}, "comments": []}
 
-    with open(comments_path, "r", encoding="utf-8") as f:
+    with open(comments_path, encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -120,10 +121,11 @@ def save_stats(user_dir: str, stats: dict):
 # 评论提取
 # ═══════════════════════════════════════════════════════════════════
 
-def extract_comment_info(comment: dict, aweme_id: str, reply_to_cid: Optional[str] = None) -> dict:
+
+def extract_comment_info(comment: dict, aweme_id: str, reply_to_cid: str | None = None) -> dict:
     """
     从原始评论数据中提取关键字段。
-    
+
     提取字段：
       - cid: 评论 ID
       - aweme_id: 所属视频 ID
@@ -152,7 +154,9 @@ def extract_comment_info(comment: dict, aweme_id: str, reply_to_cid: Optional[st
             "uid": user_info.get("uid", ""),
             "nickname": user_info.get("nickname", ""),
             "sec_uid": user_info.get("sec_uid", ""),
-            "avatar": user_info.get("avatar_168x168", "") or user_info.get("avatar_300x300", "") or user_info.get("avatar", ""),
+            "avatar": user_info.get("avatar_168x168", "")
+            or user_info.get("avatar_300x300", "")
+            or user_info.get("avatar", ""),
             "following_count": user_info.get("following_count", 0),
             "follower_count": user_info.get("follower_count", 0),
             "total_favorited": user_info.get("total_favorited", 0),
@@ -182,7 +186,7 @@ async def fetch_all_comments(
 ) -> list:
     """
     分页采集一个视频下的所有评论（含子回复）。
-    
+
     返回结构化评论列表。
     """
     all_comments = []
@@ -280,7 +284,11 @@ async def fetch_user_profile(crawler: DouyinWebCrawler, sec_user_id: str) -> dic
     """获取目标用户的个人信息"""
     try:
         result = await crawler.handler_user_profile(sec_user_id)
-        user_data = result.get("user", {}) or result.get("user_info", {}) or result.get("data", {}).get("user", {})
+        user_data = (
+            result.get("user", {})
+            or result.get("user_info", {})
+            or result.get("data", {}).get("user", {})
+        )
         return {
             "uid": user_data.get("uid", ""),
             "nickname": user_data.get("nickname", ""),
@@ -303,23 +311,23 @@ async def check_has_new_comments(crawler: DouyinWebCrawler, aweme_id: str, known
     只取最新 1 条评论比较 cid，无需全量拉取。
     """
     try:
-        result = await crawler.fetch_video_comments(
-            aweme_id=aweme_id, cursor=0, count=1
-        )
+        result = await crawler.fetch_video_comments(aweme_id=aweme_id, cursor=0, count=1)
         comments = result.get("comments", [])
         if not comments:
             return False
         newest_cid = comments[0].get("cid", "")
         return newest_cid not in known_cids
-    except Exception as e:
+    except Exception:
         # 检查失败时保守处理：认为有新评论
         return True
 
 
-async def fetch_all_posts(crawler: DouyinWebCrawler, sec_user_id: str, max_videos: Optional[int] = None) -> list:
+async def fetch_all_posts(
+    crawler: DouyinWebCrawler, sec_user_id: str, max_videos: int | None = None
+) -> list:
     """
     分页获取用户的所有作品列表（含视频和图集）。
-    
+
     返回格式：[{aweme_id, desc, create_time, aweme_type}, ...]
     """
     all_videos = []
@@ -338,12 +346,14 @@ async def fetch_all_posts(crawler: DouyinWebCrawler, sec_user_id: str, max_video
 
             aweme_list = result.get("aweme_list", [])
             for v in aweme_list:
-                all_videos.append({
-                    "aweme_id": v.get("aweme_id", ""),
-                    "desc": v.get("desc", ""),
-                    "create_time": v.get("create_time", 0),
-                    "aweme_type": v.get("aweme_type", 0),
-                })
+                all_videos.append(
+                    {
+                        "aweme_id": v.get("aweme_id", ""),
+                        "desc": v.get("desc", ""),
+                        "create_time": v.get("create_time", 0),
+                        "aweme_type": v.get("aweme_type", 0),
+                    }
+                )
 
             max_cursor = result.get("max_cursor", 0)
             has_more = result.get("has_more", False)
@@ -371,6 +381,7 @@ async def fetch_all_posts(crawler: DouyinWebCrawler, sec_user_id: str, max_video
 # ═══════════════════════════════════════════════════════════════════
 # 统计
 # ═══════════════════════════════════════════════════════════════════
+
 
 def compute_stats(all_comments: list, target_user: dict) -> dict:
     """从全量评论数据生成统计摘要"""
@@ -418,9 +429,13 @@ def compute_stats(all_comments: list, target_user: dict) -> dict:
         "total_videos_with_comments": len(video_comment_count),
         "time_range": {
             "earliest": earliest,
-            "earliest_str": datetime.fromtimestamp(earliest, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S") if earliest else "",
+            "earliest_str": datetime.fromtimestamp(earliest, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
+            if earliest
+            else "",
             "latest": latest,
-            "latest_str": datetime.fromtimestamp(latest, tz=timezone.utc).strftime("%Y-%m-%d %H:%M:%S") if latest else "",
+            "latest_str": datetime.fromtimestamp(latest, tz=UTC).strftime("%Y-%m-%d %H:%M:%S")
+            if latest
+            else "",
         },
         "ip_distribution": dict(top_ips),
         "top_commenters": top_commenters[:20],
@@ -432,6 +447,7 @@ def compute_stats(all_comments: list, target_user: dict) -> dict:
 # ═══════════════════════════════════════════════════════════════════
 # 主流程
 # ═══════════════════════════════════════════════════════════════════
+
 
 async def main():
     import argparse
@@ -458,13 +474,23 @@ async def main():
         """,
     )
     parser.add_argument("url", help="抖音用户主页 URL")
-    parser.add_argument("--max-posts", type=int, default=None, dest="max_videos", help="最多采集 N 个作品的评论（默认全部）")
-    parser.add_argument("--max-comments", type=int, default=999999, help="每个作品最多采集 N 条评论（默认全部）")
+    parser.add_argument(
+        "--max-posts",
+        type=int,
+        default=None,
+        dest="max_videos",
+        help="最多采集 N 个作品的评论（默认全部）",
+    )
+    parser.add_argument(
+        "--max-comments", type=int, default=999999, help="每个作品最多采集 N 条评论（默认全部）"
+    )
     parser.add_argument("--no-replies", action="store_true", help="不采集子回复")
     parser.add_argument("--resume", action="store_true", help="继续上次未完成的采集")
     parser.add_argument("--interval", type=float, default=2.0, help="作品间延迟秒数 (默认 2.0)")
     parser.add_argument("--all", action="store_true", help="采集全部作品（包括已采集过的）")
-    parser.add_argument("--sync", action="store_true", help="增量同步：只拉取新评论，已采集视频做快速检查")
+    parser.add_argument(
+        "--sync", action="store_true", help="增量同步：只拉取新评论，已采集视频做快速检查"
+    )
 
     args = parser.parse_args()
     sec_user_id = extract_sec_user_id(args.url)
@@ -474,10 +500,12 @@ async def main():
     print("=" * 60)
     print(f"🔍 用户 sec_user_id: {sec_user_id}")
     max_comments_display = "全部" if args.max_comments >= 999999 else args.max_comments
-    print(f"⚙️  配置: max_posts={args.max_videos or '全部'}, "
-          f"max_comments/post={max_comments_display}, "
-          f"replies={'否' if args.no_replies else '是'}, "
-          f"interval={args.interval}s")
+    print(
+        f"⚙️  配置: max_posts={args.max_videos or '全部'}, "
+        f"max_comments/post={max_comments_display}, "
+        f"replies={'否' if args.no_replies else '是'}, "
+        f"interval={args.interval}s"
+    )
     print()
 
     # ── 初始化爬虫 ──
@@ -488,9 +516,11 @@ async def main():
     target_user = await fetch_user_profile(crawler, sec_user_id)
     nickname = target_user.get("nickname", sec_user_id[:16])
     print(f"   昵称: {nickname}")
-    print(f"   粉丝: {target_user.get('follower_count', '?')}  "
-          f"关注: {target_user.get('following_count', '?')}  "
-          f"作品: {target_user.get('aweme_count', '?')}")
+    print(
+        f"   粉丝: {target_user.get('follower_count', '?')}  "
+        f"关注: {target_user.get('following_count', '?')}  "
+        f"作品: {target_user.get('aweme_count', '?')}"
+    )
     print()
 
     # ── 确定数据目录（格式：昵称_sec_user_id[:8]） ──
@@ -508,8 +538,10 @@ async def main():
     if args.resume or args.sync:
         existing_data = load_existing_comments(user_dir)
         mode = "同步" if args.sync else "续采"
-        print(f"♻️  {mode}模式: 已有 {len(existing_data.get('comments', []))} 条评论, "
-              f"{len(existing_data.get('videos', {}))} 个作品已采集")
+        print(
+            f"♻️  {mode}模式: 已有 {len(existing_data.get('comments', []))} 条评论, "
+            f"{len(existing_data.get('videos', {}))} 个作品已采集"
+        )
         print()
 
     # ── 遍历每个作品采集评论 ──
@@ -535,12 +567,11 @@ async def main():
                 print(f"  [{idx}/{total_videos}] 🔍 检查新评论: {aweme_id} - {desc}")
                 has_new = await check_has_new_comments(crawler, aweme_id, known_cids)
                 if not has_new:
-                    print(f"    ✅ 无新增评论")
+                    print("    ✅ 无新增评论")
                     skipped += 1
                     continue
-                print(f"    🔄 发现新评论，重新采集...")
+                print("    🔄 发现新评论，重新采集...")
                 # 清洗旧评论，重新采集
-                old_count = processed_videos[aweme_id].get("comment_count", 0)
                 all_comments = [c for c in all_comments if c.get("aweme_id") != aweme_id]
             else:
                 # 普通模式：跳过
@@ -576,21 +607,24 @@ async def main():
             save_comments_data(user_dir, save_data)
 
             # 保存元数据
-            save_meta(user_dir, {
-                "target_user": target_user,
-                "sec_user_id": sec_user_id,
-                "url": args.url,
-                "config": {
-                    "max_videos": args.max_videos,
-                    "max_comments": args.max_comments,
-                    "fetch_replies": not args.no_replies,
+            save_meta(
+                user_dir,
+                {
+                    "target_user": target_user,
+                    "sec_user_id": sec_user_id,
+                    "url": args.url,
+                    "config": {
+                        "max_videos": args.max_videos,
+                        "max_comments": args.max_comments,
+                        "fetch_replies": not args.no_replies,
+                    },
+                    "collected_at": time.time(),
+                    "collected_at_str": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "total_videos": total_videos,
+                    "videos_collected": len(processed_videos),
+                    "total_comments": len(all_comments),
                 },
-                "collected_at": time.time(),
-                "collected_at_str": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "total_videos": total_videos,
-                "videos_collected": len(processed_videos),
-                "total_comments": len(all_comments),
-            })
+            )
 
         except Exception as e:
             print(f"    ❌ 采集失败: {e}")
@@ -615,10 +649,10 @@ async def main():
     save_stats(user_dir, stats)
 
     print(f"   唯一评论者: {stats['total_commenters']} 人")
-    print(f"   IP 分布 Top5: ", end="")
+    print("   IP 分布 Top5: ", end="")
     top_ips = list(stats["ip_distribution"].items())[:5]
     print(", ".join(f"{k}={v}" for k, v in top_ips))
-    print(f"   最活跃评论者: ", end="")
+    print("   最活跃评论者: ", end="")
     if stats["top_commenters"]:
         tc = stats["top_commenters"][0]
         print(f"{tc['nickname']} ({tc['count']} 条)")

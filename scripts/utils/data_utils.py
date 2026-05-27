@@ -13,8 +13,6 @@ import json
 import os
 import sys
 from collections import Counter
-from typing import Optional
-
 
 # ── 项目根目录（所有脚本共用） ──
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -28,7 +26,17 @@ for _p in (_SCRIPTS_PATH, _LIB_PATH):
 
 
 def find_comment_dir(sec_user_id: str) -> str | None:
-    """在 data/comments/ 中搜索匹配 sec_uid 的目录"""
+    """在 data/comments/ 中搜索匹配 sec_uid 的目录。
+
+    遍历 data/comments/ 下每个子目录，检查 _meta.json 中的
+    target_user.sec_uid 是否与参数匹配。
+
+    Args:
+        sec_user_id: 目标用户的 sec_uid。
+
+    Returns:
+        匹配到的目录绝对路径，未找到则返回 None。
+    """
     comments_root = os.path.join(PROJECT_ROOT, "data", "comments")
     if not os.path.isdir(comments_root):
         return None
@@ -36,7 +44,7 @@ def find_comment_dir(sec_user_id: str) -> str | None:
         meta_path = os.path.join(comments_root, dname, "_meta.json")
         if os.path.isfile(meta_path):
             try:
-                with open(meta_path, "r", encoding="utf-8") as f:
+                with open(meta_path, encoding="utf-8") as f:
                     meta = json.load(f)
                 if meta.get("target_user", {}).get("sec_uid", "") == sec_user_id:
                     return os.path.join(comments_root, dname)
@@ -50,18 +58,42 @@ def find_comment_dir(sec_user_id: str) -> str | None:
 # ═══════════════════════════════════════════════════════════════════
 
 OVERSEAS_KEYWORDS = [
-    "海外", "美国", "日本", "韩国", "英国", "法国", "德国",
-    "加拿大", "澳大利亚", "新加坡", "马来西亚", "泰国",
-    "越南", "菲律宾", "印度尼西亚", "印度", "俄罗斯",
-    "巴西", "意大利", "西班牙", "荷兰", "瑞典",
+    "海外",
+    "美国",
+    "日本",
+    "韩国",
+    "英国",
+    "法国",
+    "德国",
+    "加拿大",
+    "澳大利亚",
+    "新加坡",
+    "马来西亚",
+    "泰国",
+    "越南",
+    "菲律宾",
+    "印度尼西亚",
+    "印度",
+    "俄罗斯",
+    "巴西",
+    "意大利",
+    "西班牙",
+    "荷兰",
+    "瑞典",
 ]
 
 
 def analyze_ip_distribution(comments: list) -> dict:
-    """
-    分析评论 IP 归属地分布。
-    
-    返回结构化数据供 fan_portrait 的"地域分布"和 identity_mining 的"出生地推断"复用。
+    """分析评论 IP 归属地分布。
+
+    统计每条评论的 ip_label 或 position 字段，按地区汇总。
+    结果供 fan_portrait 的"地域分布"和 identity_mining 的"出生地推断"复用。
+
+    Args:
+        comments: 评论列表，每条评论需包含 ip_label 或 position 字段。
+
+    Returns:
+        包含 domestic（国内）、overseas（海外）和 top_regions（Top 地区）的分布字典。
     """
     ip_counter = Counter()
     for c in comments:
@@ -92,7 +124,7 @@ def analyze_ip_distribution(comments: list) -> dict:
     top_domestic = dict(sorted(domestic.items(), key=lambda x: x[1]["count"], reverse=True)[:15])
     top_overseas = dict(sorted(overseas.items(), key=lambda x: x[1]["count"], reverse=True)[:10])
 
-    top_region = list(distribution.keys())[0] if distribution else "未知"
+    top_region = next(iter(distribution.keys())) if distribution else "未知"
     top_pct = distribution[top_region]["percentage"] if top_region in distribution else 0
 
     return {
@@ -109,7 +141,7 @@ def analyze_ip_distribution(comments: list) -> dict:
 def analyze_commenter_fan_tiers(comments: list) -> dict:
     """
     分析评论者粉丝分层：KOL / 核心粉丝 / 普通粉丝 / 新用户。
-    
+
     所有 analyze 脚本统一使用此函数，确保分层逻辑一致。
     """
     commenters = {}
@@ -150,17 +182,28 @@ def analyze_commenter_fan_tiers(comments: list) -> dict:
 
     return {
         "total_commenters": total,
-        "kols": {"count": len(kols), "percentage": round(len(kols) / total * 100, 1), "list": kols[:20]},
-        "core_fans": {"count": len(core), "percentage": round(len(core) / total * 100, 1), "list": core[:30]},
+        "kols": {
+            "count": len(kols),
+            "percentage": round(len(kols) / total * 100, 1),
+            "list": kols[:20],
+        },
+        "core_fans": {
+            "count": len(core),
+            "percentage": round(len(core) / total * 100, 1),
+            "list": core[:30],
+        },
         "normal_fans": {"count": len(normal), "percentage": round(len(normal) / total * 100, 1)},
-        "new_users": {"count": len(new_users), "percentage": round(len(new_users) / total * 100, 1)},
+        "new_users": {
+            "count": len(new_users),
+            "percentage": round(len(new_users) / total * 100, 1),
+        },
     }
 
 
 def analyze_top_commenters(comments: list, top_n: int = 50) -> list:
     """
     统计高频评论者排名。
-    
+
     返回按评论数降序排列的列表，供 social_graph / fan_portrait / identity_mining 统一使用。
     """
     commenter_stats = {}
@@ -182,13 +225,15 @@ def analyze_top_commenters(comments: list, top_n: int = 50) -> list:
 
     result = []
     for uid, info in commenter_stats.items():
-        result.append({
-            "uid": uid,
-            "nickname": info["nickname"],
-            "sec_uid": info["sec_uid"],
-            "comment_count": info["comment_count"],
-            "video_count": len(info["videos"]),
-        })
+        result.append(
+            {
+                "uid": uid,
+                "nickname": info["nickname"],
+                "sec_uid": info["sec_uid"],
+                "comment_count": info["comment_count"],
+                "video_count": len(info["videos"]),
+            }
+        )
 
     result.sort(key=lambda x: x["comment_count"], reverse=True)
     return result[:top_n]

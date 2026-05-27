@@ -14,11 +14,13 @@ import asyncio
 import json
 import os
 import re
+import shutil
 import sys
 import time
-import shutil
 
-LIB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib")
+LIB_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib"
+)
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 
@@ -72,7 +74,7 @@ async def rename_dir(
 ) -> dict:
     """
     重命名 base_dir 下的所有用户目录。
-    
+
     use_api=True: 通过爬虫 API 获取最新昵称（用于 downloads）
     use_api=False: 从 _meta.json 中直接读取昵称（用于 comments）
     """
@@ -100,7 +102,7 @@ async def rename_dir(
     id_to_dirs = {}
     for d in user_dirs:
         try:
-            with open(os.path.join(base_dir, d, "_meta.json"), "r") as f:
+            with open(os.path.join(base_dir, d, "_meta.json")) as f:
                 m = json.load(f)
                 sid = _get_sec_user_id_from_meta(m)
         except Exception:
@@ -155,12 +157,12 @@ async def rename_dir(
         primary_meta_path = os.path.join(primary_path, "_meta.json")
         other_meta_path = os.path.join(other_path, "_meta.json")
         try:
-            with open(primary_meta_path, "r", encoding="utf-8") as f:
+            with open(primary_meta_path, encoding="utf-8") as f:
                 pmeta = json.load(f)
         except Exception:
             pmeta = {}
         try:
-            with open(other_meta_path, "r", encoding="utf-8") as f:
+            with open(other_meta_path, encoding="utf-8") as f:
                 ometa = json.load(f)
         except Exception:
             ometa = {}
@@ -224,7 +226,7 @@ async def rename_dir(
         old_path = os.path.join(base_dir, old_name)
         meta_path = os.path.join(old_path, "_meta.json")
 
-        with open(meta_path, "r") as f:
+        with open(meta_path) as f:
             meta = json.load(f)
 
         sec_user_id = _get_sec_user_id_from_meta(meta)
@@ -245,7 +247,7 @@ async def rename_dir(
             nickname = existing_nickname
 
         if not nickname:
-            print(f"  ❌ 无法获取昵称")
+            print("  ❌ 无法获取昵称")
             stats["failed"] += 1
             continue
 
@@ -277,7 +279,7 @@ async def rename_dir(
 
         # 目标冲突
         if os.path.exists(new_path):
-            print(f"  ⚠️  目标已存在，追加时间戳")
+            print("  ⚠️  目标已存在，追加时间戳")
             new_name = f"{new_name}_{int(time.time())}"
             new_path = os.path.join(base_dir, new_name)
 
@@ -295,12 +297,14 @@ async def rename_dir(
             if existing_nickname and existing_nickname != nickname:
                 nickname_history.append(existing_nickname)
             meta["rename_history"] = meta.get("rename_history", [])
-            meta["rename_history"].append({
-                "old_dir": old_name,
-                "new_dir": new_name,
-                "nickname": nickname,
-                "renamed_at": time.time(),
-            })
+            meta["rename_history"].append(
+                {
+                    "old_dir": old_name,
+                    "new_dir": new_name,
+                    "nickname": nickname,
+                    "renamed_at": time.time(),
+                }
+            )
 
             if use_api:
                 meta["nickname"] = nickname
@@ -331,8 +335,10 @@ async def main():
         description="统一重命名 data/ 下用户目录为「昵称_sec_user_id[:8]」格式",
     )
     parser.add_argument(
-        "--target", choices=["downloads", "comments", "all"],
-        default="downloads", help="目标目录（默认: downloads）",
+        "--target",
+        choices=["downloads", "comments", "all"],
+        default="downloads",
+        help="目标目录（默认: downloads）",
     )
     parser.add_argument("--dry-run", action="store_true", help="仅预览，不实际重命名")
 
@@ -352,15 +358,15 @@ async def main():
         for k in total:
             total[k] += stats[k]
 
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     if dry_run:
-        print(f"📊 预览完成（--dry-run 模式未实际修改）")
+        print("📊 预览完成（--dry-run 模式未实际修改）")
     else:
-        print(f"📊 全部完成")
+        print("📊 全部完成")
     print(f"   ✅ 成功: {total['renamed']}")
     print(f"   ⏭️ 跳过: {total['skipped']}")
     print(f"   ❌ 失败: {total['failed']}")
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
 
 
 if __name__ == "__main__":

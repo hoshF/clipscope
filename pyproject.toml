@@ -1,0 +1,51 @@
+[project]
+name = "social-archive-douyin"
+version = "0.1.0"
+description = "Douyin/TikTok/Bilibili data collection & analysis toolkit"
+requires-python = ">=3.11"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+include = ["*.py", "*.pyi"]
+extend-exclude = [
+    "lib/",
+    ".venv/",
+    "data/",
+    "__pycache__/",
+]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "N",         # pep8-naming
+    "UP",        # pyupgrade
+    "RUF",       # ruff-specific
+]
+ignore = [
+    "E501",      # 行长度由 formatter 处理
+    "D100",      # 模块级 docstring 可选
+    "D104",      # __init__ docstring 可选
+    "D107",      # __init__ 方法 docstring 可选
+    "RUF001",    # 中文全角标点属于正常使用
+    "RUF002",    # 同上
+    "RUF003",    # 同上
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"app/api/endpoints/*.py" = ["D101", "D102", "D103"]
+"app/main.py" = ["E402"]
+"download_user_videos.py" = ["E402"]
+"scripts/collect/*.py" = ["E402"]
+"scripts/download/*.py" = ["E402"]
+"scripts/utils/*.py" = ["D"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"

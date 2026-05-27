@@ -5,25 +5,28 @@
 支持抖音、TikTok、Bilibili 的单条/批量解析。
 """
 
-import re
 import asyncio
-from typing import List, Optional
-
-from fastapi import APIRouter, Query, Request, HTTPException
-from app.api.models import ResponseModel, ErrorResponse
+import re
 
 from crawlers.hybrid.hybrid_crawler import HybridCrawler
+from fastapi import APIRouter, HTTPException, Query, Request
+
+from app.api.models import ErrorResponse, ResponseModel
 
 router = APIRouter()
 crawler = HybridCrawler()
 
 
-def extract_urls(text: str) -> List[str]:
-    """从文本中提取所有可能的视频/分享链接"""
-    # 匹配常见 URL
-    url_pattern = re.compile(
-        r"https?://[^\s,，、\n\r]+"
-    )
+def extract_urls(text: str) -> list[str]:
+    """从文本中提取所有可能的视频/分享链接。
+
+    Args:
+        text: 包含分享链接的原始文本。
+
+    Returns:
+        从文本中提取到的 URL 列表，未匹配到则返回空列表。
+    """
+    url_pattern = re.compile(r"https?://[^\s,，、\n\r]+")
     return url_pattern.findall(text)
 
 
@@ -59,14 +62,16 @@ async def parse_video(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=ErrorResponse(code=500, message=f"解析失败: {str(e)}", detail={"url": url}).model_dump(),
+            detail=ErrorResponse(
+                code=500, message=f"解析失败: {e!s}", detail={"url": url}
+            ).model_dump(),
         )
 
 
 @router.post("/batch", summary="批量解析多个视频/图集")
 async def parse_batch(
     request: Request,
-    urls: List[str] = Query(
+    urls: list[str] = Query(
         ...,
         example=[
             "https://v.douyin.com/L4FJNR3/",

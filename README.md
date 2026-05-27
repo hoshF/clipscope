@@ -1,109 +1,111 @@
-# Douyin/TikTok/Bilibili 爬虫工具集
+# Douyin/TikTok/Bilibili Crawler Toolkit
 
-基于 [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) 构建的抖音数据采集与分析工具集。
+A Douyin (TikTok China) data collection & analysis toolkit built on top of [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API).
 
-> 支持抖音视频/图集批量下载、推荐流追踪分析、用户画像推断等功能。
+> Supports batch video/album downloading, recommendation feed tracking, user profiling, and more.
 
 ---
 
-## 📦 功能概览
+## 📦 Features
 
-| 功能 | 工具 | 说明 |
+| Feature | Tool | Description |
 |---|---|---|
-| 🎬 **批量下载用户视频** | `download_user_videos.py` | 输入用户主页链接，自动下载全部作品（无水印） |
-| 🔄 **同步更新** | `scripts/download/sync_downloads.py` | 对比本地和远程，只下载新增视频 |
-| 📡 **推荐流追踪** | `scripts/collect/feed_collector.py` | 定时采集推荐页数据，追踪算法变化趋势 |
-| 📊 **趋势看板** | `static/dashboard.html` | 可视化展示话题频率变化 |
-| 🔍 **用户画像分析** | `scripts/analyze/analyze_recommend_portrait.py` | 通过推荐流反推算法对你的兴趣判断 |
-| 💬 **评论采集** | `scripts/collect/collect_comments.py` | 采集用户所有视频下的评论（含 IP 归属地、子回复） |
-| 🔗 **关系拓扑** | `scripts/analyze/analyze_social_graph.py` | 基于评论互动构建用户关系网络，发现社群和 KOL |
-| 🎯 **粉丝画像** | `scripts/analyze/analyze_fan_portrait.py` | 从评论数据分析粉丝地域、活跃时段、忠诚度等 |
-| 🕵️ **身份挖掘** | `scripts/analyze/analyze_identity_mining.py` | 从评论+作品描述挖掘出生地、教育、社交关系、姓名线索 |
-| 🔎 **评论者探测** | `scripts/analyze/analyze_commenter_value.py` | 探测活跃评论者的粉丝/作品/热度，判断是否值得爬取 |
-| 🔑 **Cookie 管理** | `scripts/utils/apply_cookies.py` | 从 Netscape 格式文件应用 Cookie，检查过期 |
-| 🌐 **API 服务** | `app/main.py` | FastAPI 服务，提供 HTTP 接口 |
+| 🎬 **Batch Download** | `download_user_videos.py` | Enter a user profile URL to download all their posts (watermark-free) |
+| 🔄 **Sync Updates** | `scripts/download/sync_downloads.py` | Compare local vs remote, download only new videos |
+| 📡 **Feed Tracking** | `scripts/collect/feed_collector.py` | Scheduled collection of recommendation feed data to track algorithmic trends |
+| 📊 **Trend Dashboard** | `static/dashboard.html` | Visualize hashtag frequency changes over time |
+| 🔍 **Profile Inference** | `scripts/analyze/analyze_recommend_portrait.py` | Infer how the algorithm profiles you through recommendation feed analysis |
+| 💬 **Comment Collection** | `scripts/collect/collect_comments.py` | Collect all comments under a user's videos (including IP locations, replies) |
+| 🔗 **Social Graph** | `scripts/analyze/analyze_social_graph.py` | Build relationship networks from comment interactions to discover communities and KOLs |
+| 🎯 **Fan Portrait** | `scripts/analyze/analyze_fan_portrait.py` | Analyze fan demographics, active hours, loyalty from comment data |
+| 🕵️ **Identity Mining** | `scripts/analyze/analyze_identity_mining.py` | Extract birthplace, education, relationships, and name clues from comments and post captions |
+| 🔎 **Commenter Value** | `scripts/analyze/analyze_commenter_value.py` | Evaluate active commenters' followers/posts/popularity to decide who's worth crawling |
+| 🔑 **Cookie Management** | `scripts/utils/apply_cookies.py` | Apply cookies from Netscape format files and check expiry |
+| 🌐 **API Service** | `app/main.py` | FastAPI-based HTTP interface |
 
 ---
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
 douyin-crawler-app/
 │
-├── app/                          ← API 服务端
-│   ├── main.py                   FastAPI 入口
+├── app/                          ← API Server
+│   ├── main.py                   FastAPI entry point
 │   ├── api/
-│   │   ├── router.py             路由聚合
-│   │   ├── models.py             响应模型
+│   │   ├── router.py             Route aggregation
+│   │   ├── models.py             Response models
 │   │   └── endpoints/
-│   │       ├── parser.py         数据解析接口
-│   │       ├── downloader.py     文件下载接口
-│   │       └── tracking.py       推荐流追踪接口
+│   │       ├── parser.py         Data parsing endpoints
+│   │       ├── downloader.py     File download endpoints
+│   │       └── tracking.py       Feed tracking endpoints
 │   └── static/
-│       └── dashboard.html        趋势看板
+│       └── dashboard.html        Trend dashboard
 │
-├── scripts/                      ← CLI 工具
-│   ├── download/                  🎬 下载相关
-│   │   ├── sync_downloads.py     增量同步下载
-│   │   └── rename_user_dirs.py   重命名用户目录
-│   ├── collect/                   📡 数据采集
-│   │   ├── feed_collector.py     推荐流采集器（定时任务）
-│   │   └── collect_comments.py   💬 评论采集
-│   ├── analyze/                   🔍 数据分析
-│   │   ├── analyze_recommend_portrait.py  📡 推荐流画像
-│   │   ├── analyze_social_graph.py        🔗 社交关系图谱
-│   │   ├── analyze_fan_portrait.py        🎯 粉丝画像
-│   │   ├── analyze_identity_mining.py     🕵️ 身份挖掘
-│   │   └── analyze_commenter_value.py     🔎 评论者价值
-│   ├── utils/                     🔧 工具
+├── scripts/                      ← CLI Tools
+│   ├── download/                 🎬 Download
+│   │   ├── sync_downloads.py     Incremental sync download
+│   │   └── rename_user_dirs.py   Rename user directories
+│   ├── collect/                  📡 Data Collection
+│   │   ├── feed_collector.py     Feed collector (scheduled task)
+│   │   └── collect_comments.py   💬 Comment collection
+│   ├── analyze/                  🔍 Data Analysis
+│   │   ├── analyze_recommend_portrait.py  📡 Recommendation profile
+│   │   ├── analyze_social_graph.py        🔗 Social graph
+│   │   ├── analyze_fan_portrait.py        🎯 Fan portrait
+│   │   ├── analyze_identity_mining.py     🕵️ Identity mining
+│   │   └── analyze_commenter_value.py     🔎 Commenter value
+│   ├── utils/                    🔧 Utilities
 │   │   ├── __init__.py
-│   │   ├── data_utils.py         数据分析共享工具函数
-│   │   ├── apply_cookies.py      Cookie 管理
-│   │   └── auto_sync.sh          定时同步脚本
-│   ├── com.user.douyin-sync.plist  launchd 定时任务配置
-│   └── douyin-feed-observer.user.js  油猴脚本（备选）
+│   │   ├── data_utils.py         Shared data analysis functions
+│   │   ├── apply_cookies.py      Cookie management
+│   │   └── auto_sync.sh          Scheduled sync script
+│   ├── com.user.douyin-sync.plist  launchd scheduled task config
+│   └── douyin-feed-observer.user.js  Tampermonkey script (alternative)
 │
-├── lib/                          ← 爬虫引擎（git clone）
+├── lib/                          ← Crawler Engine (git clone)
 │   └── crawlers/
-│       ├── douyin/web/           抖音网页版爬虫
-│       ├── tiktok/web/           TikTok 网页版爬虫
-│       ├── tiktok/app/           TikTok APP 爬虫
-│       ├── bilibili/web/         B站爬虫
-│       └── hybrid/              混合解析爬虫
+│       ├── douyin/web/           Douyin web crawler
+│       ├── tiktok/web/           TikTok web crawler
+│       ├── tiktok/app/           TikTok app crawler
+│       ├── bilibili/web/         Bilibili web crawler
+│       └── hybrid/               Hybrid parser crawler
 │
-├── cookies/                      ← Cookie 文件
-│   ├── douyin.txt               抖音 Cookie（Netscape 格式）
-│   └── tiktok.txt               TikTok Cookie
+├── cookies/                      ← Cookie Files
+│   ├── douyin.txt                Douyin cookie (Netscape format)
+│   └── tiktok.txt                TikTok cookie
 │
-├── data/                         ← 所有数据
-│   ├── downloads/               下载的用户视频/图集 + 分析报告
-│   │   └── <用户名>/             按用户分组（自动同步分析报告）
-│   │       ├── profile/         🎯 粉丝画像报告
-│   │       ├── relations/       🔗 关系拓扑报告
-│   │       └── identity/        🕵️ 身份信息报告
-│   ├── comments/                评论采集数据
-│   │   └── <sec_user_id>/       按用户分组
-│   │       ├── comments.json    全量评论数据
-│   │       ├── stats.json       采集统计
-│   │       ├── relations/       关系拓扑分析结果
-│   │       └── profile/         粉丝画像分析结果
-│   ├── tracking/                推荐流快照（JSONL 格式）
-│   └── temp/                    临时下载缓存
+├── data/                         ← All Data
+│   ├── downloads/                Downloaded user videos/albums + analysis reports
+│   │   └── <username>/           Grouped by user (auto-sync analysis reports)
+│   │       ├── profile/         🎯 Fan portrait reports
+│   │       ├── relations/       🔗 Social graph reports
+│   │       └── identity/        🕵️ Identity reports
+│   ├── comments/                 Comment collection data
+│   │   └── <sec_user_id>/       Grouped by user
+│   │       ├── comments.json    Full comment data
+│   │       ├── stats.json       Collection statistics
+│   │       ├── relations/       Social graph analysis
+│   │       └── profile/         Fan portrait analysis
+│   ├── tracking/                 Feed snapshots (JSONL format)
+│   └── temp/                     Temporary download cache
 │
-├── config.yaml                   服务配置文件
-├── download_user_videos.py       一键下载脚本
-└── requirements.txt
+├── config.yaml                   Service configuration
+├── download_user_videos.py       One-click download script
+├── requirements.txt
+├── LICENSE                       Apache License 2.0
+└── README.md
 ```
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 安装依赖
+### 1. Install Dependencies
 
 ```bash
-# 推荐用 uv（速度比 pip 快 100 倍）
-brew install uv    # 如果还没有 uv
+# Recommended: use uv (100x faster than pip)
+brew install uv    # if you don't have uv yet
 cd douyin-crawler-app
 uv venv
 uv pip install -r requirements.txt
@@ -113,373 +115,329 @@ uv pip install httpx==0.27.0 socksio rich gmssl tenacity \
                browser-cookie3 numpy
 ```
 
-### 2. 配置 Cookie
+### 2. Configure Cookies
 
-Cookie 是爬虫的登录凭证，必须配置：
+Cookies are required as login credentials:
 
 ```bash
-# 1. 浏览器登录 https://www.douyin.com
-# 2. 用 Cookie-Editor 扩展导出 Netscape 格式
-# 3. 覆盖 cookies/douyin.txt
-# 4. 应用 Cookie
+# 1. Log in to https://www.douyin.com in your browser
+# 2. Export cookies in Netscape format using a Cookie-Editor extension
+# 3. Save/overwrite cookies/douyin.txt
+# 4. Apply cookies
 uv run python scripts/utils/apply_cookies.py
 ```
 
-### 3. 启动服务
+### 3. Start Services
 
 ```bash
-# 启动 API 服务（提供看板和接口）
+# Start API server (provides dashboard and HTTP interfaces)
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir .
 
-# 启动推荐流采集器（每5分钟采集一次）
+# Start feed collector (collects every 5 minutes)
 uv run python scripts/collect/feed_collector.py --loop --interval 5
 ```
 
-### 4. 访问
+### 4. Access
 
-| 地址 | 说明 |
+| URL | Description |
 |---|---|
-| http://localhost:8000/docs | API 文档（Swagger UI） |
-| http://localhost:8000/static/dashboard.html | 📊 推荐流趋势看板 |
-| http://localhost:8000/health | 健康检查 |
+| http://localhost:8000/docs | API Documentation (Swagger UI) |
+| http://localhost:8000/static/dashboard.html | 📊 Feed Trend Dashboard |
+| http://localhost:8000/health | Health Check |
 
 ---
 
-## 🎬 功能详解
+## 🎬 Feature Details
 
-### 1. 批量下载用户视频
+### 1. Batch Download User Videos
 
 ```bash
-# 下载单个用户的所有视频/图集（自动去重）
-uv run python download_user_videos.py "https://www.douyin.com/user/<用户ID>"
+# Download all videos/albums from a user (auto-deduplication)
+uv run python download_user_videos.py "https://www.douyin.com/user/<userID>"
 
-# 支持短视频和图集，无水印，自动分类保存
+# Supports both videos and albums, watermark-free, auto-categorized
 ```
 
-**下载目录结构：**
+**Download directory structure:**
 ```
-data/downloads/<用户ID>/
-├── _meta.json                          ← 用户信息
-├── 001_7625870161799047537_标题.mp4    ← 视频
-├── 002_7639283934052336485_标题/       ← 图集文件夹
+data/downloads/<userID>/
+├── _meta.json                          ← User info
+├── 001_7625870161799047537_title.mp4   ← Video
+├── 002_7639283934052336485_title/      ← Album folder
 │   ├── 01.jpg
 │   └── 02.jpg
 └── ...
 ```
 
-### 2. 同步更新已下载用户
+### 2. Sync Update Downloaded Users
 
 ```bash
-# 检查所有用户是否有新视频（预览模式）
+# Check all users for new videos (preview mode)
 uv run python scripts/download/sync_downloads.py --dry-run
 
-# 实际下载新增内容
+# Actually download new content
 uv run python scripts/download/sync_downloads.py
 ```
 
-### 3. 推荐流趋势追踪
+### 3. Recommendation Feed Tracking
 
-采集器会每 5 分钟抓取一次你的抖音推荐页数据，记录话题标签的变化：
+The collector fetches your Douyin recommendation feed every 5 minutes, recording trending hashtags:
 
 ```bash
-# 启动持续采集
+# Start continuous collection
 uv run python scripts/collect/feed_collector.py --loop --interval 5
 ```
 
-数据自动保存到 `data/tracking/feed_YYYYMMDD.jsonl`（JSONL 格式，去重），趋势看板会自动展示。
+Data is saved to `data/tracking/feed_YYYYMMDD.jsonl` (JSONL format, deduplicated). The trend dashboard displays it automatically.
 
-### 4. 用户画像分析
+### 4. Profile Inference
 
 ```bash
-# 分析推荐流，反推算法对你的兴趣判断
+# Analyze recommendation feed to infer how the algorithm profiles you
 uv run python scripts/analyze/analyze_recommend_portrait.py --count 100
 ```
 
-输出示例：
+Sample output:
 ```
-🎯 推断的人物画像
-   主要兴趣方向: 音乐, 情感, 搞笑
-   内容偏好: 偏好短视频（15秒以内）
-   内容形式偏好: 视频 80% / 图集 20%
+🎯 Inferred User Profile
+   Primary interests: Music, Emotions, Comedy
+   Content preference: Short videos (< 15 seconds)
+   Format preference: Video 80% / Album 20%
 ```
 
-### 5. 💬 全量评论采集
+### 5. 💬 Comment Collection
 
-采集目标用户所有视频下的全部评论（含子回复、IP 归属地），用于粉丝画像和关系网络分析。
+Collect all comments (including replies and IP locations) from a target user's videos, for fan profiling and social network analysis.
 
 ```bash
-# 采集指定用户的所有评论（默认全部视频 + 全部评论 + 含子回复）
-uv run python scripts/collect/collect_comments.py "https://www.douyin.com/user/<用户ID>"
+# Collect all comments from a user (default: all videos + all comments + replies)
+uv run python scripts/collect/collect_comments.py "https://www.douyin.com/user/<userID>"
 
-# 限制范围：只采集最近 10 个视频，每个视频最多 1000 条评论
+# Limit scope: only the last 10 videos, max 1000 comments per video
 uv run python scripts/collect/collect_comments.py "https://..." --max-posts 10 --max-comments 1000
 
-# 不采子回复，只采一级评论
+# Skip replies, collect top-level comments only
 uv run python scripts/collect/collect_comments.py "https://..." --no-replies
 
-# 断点续采（继续上次未完成的采集）
+# Resume interrupted collection
 uv run python scripts/collect/collect_comments.py "https://..." --resume
 
-# 增量同步（快速检查新评论，无需全量重爬）
+# Incremental sync (quick check for new comments, no full re-crawl needed)
 uv run python scripts/collect/collect_comments.py "https://..." --sync
 ```
 
-**输出目录结构：**
+**Output structure:**
 ```
-data/comments/<用户ID>/
-├── _meta.json              用户信息 + 采集配置
-├── comments.json           全量评论（JSON 数组）
-├── stats.json              采集统计摘要
-├── relations/              关系拓扑分析结果
-│   ├── relation_graph.json  关系图数据（节点+边）
-│   ├── communities.json     社群发现结果
-│   └── report.txt           文本报告
-└── profile/                粉丝画像分析结果
-    ├── profile_report.json  结构化画像报告
-    └── report.txt           文本报告
+data/comments/<userID>/
+├── _meta.json              User info + collection config
+├── comments.json           Full comments (JSON array)
+├── stats.json              Collection summary
+├── relations/              Social graph analysis
+│   ├── relation_graph.json  Graph data (nodes + edges)
+│   ├── communities.json     Community detection
+│   └── report.txt           Text report
+└── profile/                Fan portrait analysis
+    ├── profile_report.json  Structured portrait report
+    └── report.txt           Text report
 ```
 
-### 6. 🔗 评论关系拓扑分析
+### 6. 🔗 Social Graph Analysis
 
-基于采集的评论数据，构建粉丝之间的互动关系网络，发现核心粉丝圈和意见领袖。
+Build interaction networks from collected comment data to discover core fan circles and opinion leaders.
 
 ```bash
-# 分析指定用户的评论关系
+# Analyze comment relationships for a specific user
 uv run python scripts/analyze/analyze_social_graph.py <sec_user_id_or_dir>
 ```
 
-输出示例：
+Sample output:
 ```
-🌟 KOL / 意见领袖: 12 人
-  - 用户A (粉丝 12.3万, 评论 45 次)
-  - 用户B (粉丝 5.6万, 评论 32 次)
-💬 核心粉丝 / 活跃互动者: 89 人
-  - 用户C (评论 67 次, 12 个视频)
-👥 普通粉丝: 342 人
+🌟 KOLs / Opinion Leaders: 12
+  - UserA (12.3K followers, 45 comments)
+  - UserB (5.6K followers, 32 comments)
+💬 Core Fans / Active Interactors: 89
+  - UserC (67 comments, 12 videos)
+👥 Regular Fans: 342
 ```
 
-### 7. 🎯 粉丝画像分析（评论版）
+### 7. 🎯 Fan Portrait Analysis (Comment-based)
 
-从评论数据分析粉丝群体的多维画像。
+Analyze multi-dimensional fan demographics from comment data.
 
 ```bash
-# 分析粉丝画像
+# Analyze fan portrait
 uv run python scripts/analyze/analyze_fan_portrait.py <sec_user_id_or_dir>
 ```
 
-### 8. 🕵️ 身份信息挖掘
+| Dimension | Description |
+|---|---|
+| 🌍 **Geographic Distribution** | Province/country distribution based on IP locations |
+| ⏰ **Active Hours** | When fans tend to comment (early morning, night, etc.) |
+| 👤 **Fan Type** | KOL / Core Fan / Regular User / New User ratio |
+| 📝 **Keywords** | Most frequent words appearing in comments |
+| 💖 **Sentiment** | Positive / Neutral / Negative comment ratio |
+| ⭐ **Fan Loyalty** | Cross-video commenters, frequent commenters, loyal fans |
 
-从评论内容和作品描述中自动提取目标用户的身份线索。
+### 8. 🕵️ Identity Mining
+
+Extract identity clues from comment content and post captions.
 
 ```bash
-# 挖掘身份信息
+# Mine identity information
 uv run python scripts/analyze/analyze_identity_mining.py <sec_user_id_or_dir>
 ```
 
-分析维度：
-| 维度 | 说明 |
+Analysis dimensions:
+| Dimension | Description |
 |---|---|
-| 📍 **出生地推断** | 基于最多评论者 IP 归属地推测家乡/生活地 |
-| 🎓 **教育背景** | 从描述/评论中提取专业、课程、学校线索 |
-| 👥 **社交关系** | 分析高频互动者、关系自述（情侣/闺蜜/亲戚） |
-| 🏠 **活动地点** | 提取去过/生活过的城市（如春熙路→成都） |
-| 👤 **姓名线索** | 从昵称、称呼中挖掘真实姓名可能性 |
-| 🐾 **其他特征** | 宠物、健身、音乐、自媒体等兴趣标签 |
+| 📍 **Birthplace** | Infer hometown/location from most common commenter IP areas |
+| 🎓 **Education** | Extract majors, courses, school clues from captions/comments |
+| 👥 **Social Relations** | Analyze frequent interactors, self-described relationships |
+| 🏠 **Activity Location** | Extract cities lived in or visited |
+| 👤 **Name Clues** | Mine real name possibilities from nicknames and greetings |
+| 🐾 **Other Traits** | Pets, fitness, music, content creation, and other interest tags |
 
-### 9. 🔎 评论者价值探测
+### 9. 🔎 Commenter Value Assessment
 
-分析活跃评论者的用户空间，判断是否值得单独爬取。
+Evaluate active commenters' user spaces to determine if they're worth crawling independently.
 
 ```bash
-# 探测 Top 20 最活跃评论者
+# Evaluate Top 20 most active commenters
 uv run python scripts/analyze/analyze_commenter_value.py <sec_user_id_or_dir>
 
-# 探测 Top 50
+# Evaluate Top 50
 uv run python scripts/analyze/analyze_commenter_value.py <sec_user_id> --top 50
 ```
 
-**评分维度**（综合 0-100）：
-| 维度 | 权重 | 说明 |
+**Scoring dimensions** (composite score 0-100):
+| Dimension | Weight | Description |
 |---|---|---|
-| 粉丝数 | 30% | 粉丝越多 → KOL 效应越强 |
-| 作品数 | 20% | 作品越多 → 可采集内容越多 |
-| 评论互动热度 | 25% | 自己作品的评论活跃度 |
-| 在目标用户下活跃度 | 25% | 相关性越高越值得 |
+| Follower Count | 30% | More followers → stronger KOL effect |
+| Post Count | 20% | More posts → more content to collect |
+| Comment Engagement | 25% | Activity on their own posts |
+| Activity in Target | 25% | Higher correlation → more worth collecting |
 
-**输出示例：**
+**Sample output:**
 ```
-🌟🌟🌟 高价值 (评分≥70):
-  · 山樱念樱 (评分 41.0, 粉丝 102, 作品 83)
-🌟🌟 有价值 (评分20-69):
-  · 你明哥最帅 (评分 26.0, 粉丝 199, 作品 38)
-💤 低价值 (评分<20): 5 人
+🌟🌟🌟 High Value (score ≥70):
+  · ShanYingNianYing (Score 41.0, Followers 102, Posts 83)
+🌟🌟 Valuable (score 20-69):
+  · NiMingZuiShuai (Score 26.0, Followers 199, Posts 38)
+💤 Low Value (score <20): 5 users
 ```
 
-### 10. API 接口
-| 维度 | 说明 |
-|---|---|
-| 🌍 **地域分布** | 基于 IP 归属地的省份/国家分布 |
-| ⏰ **活跃时段** | 粉丝评论的时间段偏好（凌晨/早间/深夜等） |
-| 👤 **粉丝类型** | KOL / 核心粉丝 / 普通用户 / 新用户比例 |
-| 📝 **高频关键词** | 评论中出现最多的词汇 |
-| 💖 **情感倾向** | 正面 / 中性 / 负面评论比例 |
-| ⭐ **粉丝忠诚度** | 跨视频评论者、高频评论者、铁粉识别 |
+### 10. API Endpoints
 
-### 8. API 接口
-
-| 接口 | 方法 | 说明 |
+| Endpoint | Method | Description |
 |---|---|---|
-| `/api/parser/video?url=...` | GET | 解析单个视频/图集数据 |
-| `/api/parser/batch` | POST | 批量解析多个链接 |
-| `/api/parser/extract?text=...` | GET | 从分享口令文本中提取链接并解析 |
-| `/api/downloader/video?url=...` | GET | 下载无水印视频 |
-| `/api/downloader/images?url=...` | GET | 获取图集无水印图片链接 |
-| `/api/tracking/feed` | POST | 接收推荐快照（供油猴/采集器推送） |
-| `/api/tracking/history` | GET | 历史采集记录 |
-| `/api/tracking/stats` | GET | 话题频率趋势数据 |
+| `/api/parser/video?url=...` | GET | Parse single video/album data |
+| `/api/parser/batch` | POST | Batch parse multiple URLs |
+| `/api/parser/extract?text=...` | GET | Extract links from share text and parse |
+| `/api/downloader/video?url=...` | GET | Download watermark-free video |
+| `/api/downloader/images?url=...` | GET | Get album image URLs (watermark-free) |
+| `/api/tracking/feed` | POST | Receive feed snapshot (from Tampermonkey/collector) |
+| `/api/tracking/history` | GET | Historical collection records |
+| `/api/tracking/stats` | GET | Hashtag frequency trend data |
+
+> **Note**: API examples are described in [API Examples](#api-examples) below.
 
 ---
 
-## 🔑 Cookie 管理
+## 🔑 Cookie Management
 
-Cookie 是项目的核心。推荐使用 `cookies/douyin.txt` 管理，配合 `apply_cookies.py` 应用：
+Cookies are essential. Use `cookies/douyin.txt` with `apply_cookies.py`:
 
 ```bash
-# 检查当前 Cookie 过期状态
+# Check current cookie expiry status
 uv run python scripts/utils/apply_cookies.py --check
 
-# 应用 Cookie 到爬虫配置
+# Apply cookies to the crawler configuration
 uv run python scripts/utils/apply_cookies.py
 ```
 
-**Cookie 过期判断标准：**
-- `sessionid` / `sid_tt` — 登录会话，最核心，过期则所有功能失效（约30-60天）
-- `__ac_nonce` — 短效防爬令牌（约几小时），过期可自动补充
-- `ttwid` — 设备标识，长期有效
+**Cookie expiry criteria:**
+- `sessionid` / `sid_tt` — Login session, most critical. Expiry breaks all functionality (~30-60 days)
+- `__ac_nonce` — Short-lived anti-crawl token (a few hours), auto-refreshable
+- `ttwid` — Device identifier, long-lived
 
 ---
 
-## 🛡️ 防检测机制
+## 🛡️ Anti-Detection Mechanisms
 
-项目通过以下方式绕过抖音风控：
+The project bypasses Douyin's anti-crawling measures through:
 
-| 机制 | 实现 | 位置 |
+| Mechanism | Implementation | Location |
 |---|---|---|
-| A-Bogus 签名 | SM3 哈希 + RC4 加密 | `lib/crawlers/douyin/web/abogus.py` |
-| Cookie 认证 | 用户登录凭证 | `cookies/douyin.txt` |
-| User-Agent 伪装 | 模拟 Chrome 浏览器 | `config.yaml` |
-| msToken 令牌 | 请求抖音令牌服务器获取 | `lib/crawlers/douyin/web/utils.py` |
-| 请求频率控制 | `asyncio.sleep()` 主动降速 | 各脚本中 |
-| 设备指纹 | 生成伪 `s_v_web_id` | `lib/crawlers/douyin/web/utils.py` |
+| A-Bogus Signature | SM3 hash + RC4 encryption | `lib/crawlers/douyin/web/abogus.py` |
+| Cookie Authentication | User login credentials | `cookies/douyin.txt` |
+| User-Agent Spoofing | Mimics Chrome browser | `config.yaml` |
+| msToken | Fetches token from Douyin's token server | `lib/crawlers/douyin/web/utils.py` |
+| Rate Limiting | `asyncio.sleep()` to actively slow down | Various scripts |
+| Device Fingerprint | Generates fake `s_v_web_id` | `lib/crawlers/douyin/web/utils.py` |
 
 ---
 
-## 📊 数据存储
+## 📊 Data Storage
 
-| 数据类型 | 存储位置 | 格式 |
+| Data Type | Storage Location | Format |
 |---|---|---|
-| 用户视频 | `data/downloads/<user_id>/` | MP4 / JPG |
-| 用户元数据 | `data/downloads/<user_id>/_meta.json` | JSON |
-| 推荐快照 | `data/tracking/feed_YYYYMMDD.jsonl` | JSON Lines |
-| 画像分析 | `data/downloads/_profile_analysis/` | JSON |
+| User Videos | `data/downloads/<user_id>/` | MP4 / JPG |
+| User Metadata | `data/downloads/<user_id>/_meta.json` | JSON |
+| Feed Snapshots | `data/tracking/feed_YYYYMMDD.jsonl` | JSON Lines |
+| Profile Analysis | `data/downloads/_profile_analysis/` | JSON |
 
 ---
 
-## ⚙️ 技术栈
+## ⚙️ Tech Stack
 
-| 组件 | 技术 |
+| Component | Technology |
 |---|---|
-| 爬虫引擎 | [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) |
-| API 框架 | FastAPI + Uvicorn |
-| 异步 HTTP | HTTPX |
-| 签名算法 | SM3 (gmssl) + RC4 |
-| 运行环境 | Python 3.14 / uv |
-| 前端看板 | 原生 HTML + JavaScript + Chart.js |
+| Crawler Engine | [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) |
+| API Framework | FastAPI + Uvicorn |
+| Async HTTP | HTTPX |
+| Signature Algorithm | SM3 (gmssl) + RC4 |
+| Runtime | Python 3.14 / uv |
+| Frontend Dashboard | Vanilla HTML + JavaScript + Chart.js |
 
 ---
 
-## ⚠️ 注意事项
+## ⚠️ Notes
 
-1. **Cookie 有时效性**，过期后需要重新导出并应用
-2. **推荐流采集数据越多趋势越准**，建议长期运行
-3. **下载频率不宜过高**，建议每次下载间隔 1.5 秒
-4. **本工具仅用于个人学习研究**，请勿用于违法用途
+1. **Cookies expire** — re-export and re-apply after expiry
+2. **More feed data = better trends** — recommend long-running collection
+3. **Don't download too aggressively** — recommend 1.5s interval between downloads
+4. **This tool is for personal learning and research only** — do not use for illegal purposes
 
+---
 
-## API 示例
+## API Examples
 
-### 解析单个视频
+### Parse Single Video
 
 ```http
 GET /api/parser/video?url=https://v.douyin.com/L4FJNR3/&minimal=true
 ```
 
-### 批量解析
+### Batch Parse
 
 ```http
 GET /api/parser/batch?urls=https://v.douyin.com/L4FJNR3/&urls=https://www.bilibili.com/video/BV1M1421t7hT
 ```
 
-### 从文本提取链接并解析
+### Extract Links from Text
 
 ```http
 GET /api/parser/extract?text=7.43 pda:/ 让你记住我 https://v.douyin.com/L5pbfdP/
 ```
 
-### 下载无水印视频
+### Download Watermark-Free Video
 
 ```http
 GET /api/downloader/video?url=https://v.douyin.com/L4FJNR3/
 ```
 
-### 获取图集下载链接
+### Get Album Download Links
 
 ```http
 GET /api/downloader/images?url=https://www.douyin.com/note/xxx
-```
-
-## 项目结构
-
-```
-douyin-crawler-app/
-├── app/                       ← API 服务端
-│   ├── main.py               FastAPI 入口
-│   ├── api/
-│   │   ├── router.py         路由聚合
-│   │   ├── models.py         响应模型
-│   │   └── endpoints/
-│   │       ├── parser.py     解析接口
-│   │       ├── downloader.py 下载接口
-│   │       └── tracking.py   推荐流追踪接口
-│   └── static/
-│       └── dashboard.html    趋势看板
-│
-├── scripts/                   ← CLI 工具
-│   ├── download/
-│   │   ├── sync_downloads.py
-│   │   └── rename_user_dirs.py
-│   ├── collect/
-│   │   ├── feed_collector.py
-│   │   └── collect_comments.py
-│   ├── analyze/
-│   │   ├── analyze_recommend_portrait.py
-│   │   ├── analyze_social_graph.py
-│   │   ├── analyze_fan_portrait.py
-│   │   ├── analyze_identity_mining.py
-│   │   └── analyze_commenter_value.py
-│   └── utils/
-│       ├── __init__.py
-│       ├── data_utils.py
-│       ├── apply_cookies.py
-│       └── auto_sync.sh
-│
-├── lib/                       ← 爬虫引擎 (git submodule)
-│   ├── crawlers/
-│   ├── app/
-│   └── config.yaml
-│
-├── config.yaml
-├── download_user_videos.py
-├── requirements.txt
-└── README.md
 ```

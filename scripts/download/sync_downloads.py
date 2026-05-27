@@ -6,7 +6,7 @@
     python scripts/sync_downloads.py --dry-run           # 仅检查，不下载
     python scripts/sync_downloads.py 下载目录名          # 仅同步指定用户
     python scripts/sync_downloads.py --deleted           # 同步后显示已删除的作品
-    
+
 说明:
     脚本会扫描 downloads/ 下的每个用户目录，
     读取 _meta.json 获取用户信息，
@@ -18,17 +18,19 @@
 import asyncio
 import json
 import os
-import sys
 import re
+import sys
 import time
 
 # ── 将 lib 加入 Python 路径 ──
-LIB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib")
+LIB_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib"
+)
 if LIB_PATH not in sys.path:
     sys.path.insert(0, LIB_PATH)
 
-import httpx
 import aiofiles
+import httpx
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler
 from crawlers.hybrid.hybrid_crawler import HybridCrawler
 
@@ -37,8 +39,12 @@ DOWNLOADS_DIR = os.path.join(ROOT, "data", "downloads")
 LOG_FILE = os.path.join(ROOT, "data", "tracking", "sync_log.jsonl")
 
 
-def append_log(entry: dict):
-    """追加一条日志到 sync_log.jsonl"""
+def append_log(entry: dict) -> None:
+    """追加一条同步日志到 sync_log.jsonl。
+
+    Args:
+        entry: 日志条目字典，会自动补充 _timestamp 和 _date 字段。
+    """
     os.makedirs(os.path.dirname(LOG_FILE), exist_ok=True)
     entry["_timestamp"] = time.time()
     entry["_date"] = time.strftime("%Y-%m-%d %H:%M:%S")
@@ -47,7 +53,17 @@ def append_log(entry: dict):
 
 
 def get_existing_ids(directory: str) -> dict:
-    """扫描本地目录，返回 {aweme_id: (filename, is_image, seq)} 字典"""
+    """扫描本地下载目录，返回已存在文件的索引。
+
+    解析文件名中的 aweme_id（19位数字）和序号前缀。
+
+    Args:
+        directory: 用户下载目录路径。
+
+    Returns:
+        {aweme_id: (filename, is_image, seq)} 字典，
+        其中 is_image 表示是否为图集，seq 为序号前缀。
+    """
     existing = {}
     if not os.path.exists(directory):
         return existing
@@ -72,11 +88,22 @@ def get_existing_ids(directory: str) -> dict:
 
 
 async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
-    """同步单个用户，返回统计信息"""
+    """同步单个用户的视频/图集更新。
+
+    对比本地已下载的 aweme_id 与用户主页的最新作品列表，
+    只下载新增内容，支持去重和断点续传。
+
+    Args:
+        meta_path: 用户 _meta.json 文件路径。
+        dry_run: 为 True 时仅预览变更，不实际下载。
+
+    Returns:
+        包含 new_videos、new_images、failed、skipped、deleted 计数的字典。
+    """
     result = {"new_videos": 0, "new_images": 0, "failed": 0, "skipped": 0, "deleted": 0}
 
     # 读取元数据
-    with open(meta_path, "r") as f:
+    with open(meta_path) as f:
         meta = json.load(f)
 
     user_dir = os.path.dirname(meta_path)
@@ -85,11 +112,11 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
     nickname = meta.get("nickname", "")
 
     if not sec_user_id:
-        print(f"  ⚠️  缺少 sec_user_id，跳过")
+        print("  ⚠️  缺少 sec_user_id，跳过")
         return result
 
     display_name = nickname or sec_user_id[:20]
-    print(f"\n{'='*50}")
+    print(f"\n{'=' * 50}")
     print(f"👤 {display_name}")
     print(f"   URL: {user_url}")
     print(f"   目录: {user_dir}")
@@ -104,7 +131,7 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
     hybrid_crawler = HybridCrawler()
 
     # 获取远程视频列表
-    print(f"   📋 正在获取远程视频列表...")
+    print("   📋 正在获取远程视频列表...")
     all_videos = []
     max_cursor = 0
     has_more = True
@@ -138,7 +165,11 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
         for did in sorted(deleted_ids, reverse=True):
             info = existing.get(did, ("未知", False, "???"))
             local_name, is_img, seq = info
-            desc_preview = local_name.split("_", 2)[-1].rsplit(".", 1)[0][:40] if "_" in local_name else local_name
+            desc_preview = (
+                local_name.split("_", 2)[-1].rsplit(".", 1)[0][:40]
+                if "_" in local_name
+                else local_name
+            )
             icon = "🖼️" if is_img else "🎬"
             print(f"      {icon} {seq}_{did}  {desc_preview}")
         result["deleted"] = len(deleted_ids)
@@ -146,7 +177,7 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
     # 对比找出新作品
     new_videos = [v for v in all_videos if v.get("aweme_id") not in existing_ids]
     if not new_videos:
-        print(f"\n   ✅ 已是最新，无需更新")
+        print("\n   ✅ 已是最新，无需更新")
         # 即使无更新也写日志
         log_entry = {
             "type": "user_sync",
@@ -162,8 +193,7 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
         }
         if deleted_ids:
             log_entry["deleted_ids"] = sorted(
-                f"{existing.get(did, ('???', False, '???'))[2]}_{did}"
-                for did in deleted_ids
+                f"{existing.get(did, ('???', False, '???'))[2]}_{did}" for did in deleted_ids
             )
         append_log(log_entry)
         return result
@@ -224,7 +254,9 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
                 image_urls = image_data.get("no_watermark_image_list", [])
                 if not image_urls:
                     images = video.get("images", [])
-                    image_urls = [img.get("url_list", [None])[0] for img in images if img.get("url_list")]
+                    image_urls = [
+                        img.get("url_list", [None])[0] for img in images if img.get("url_list")
+                    ]
                     image_urls = [u for u in image_urls if u]
 
                 if image_urls:
@@ -234,7 +266,7 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
                     async with httpx.AsyncClient(timeout=120.0, transport=transport) as client:
                         dl_ok = 0
                         for ii, img_url in enumerate(image_urls):
-                            img_path = os.path.join(img_dir, f"{ii+1:02d}.jpg")
+                            img_path = os.path.join(img_dir, f"{ii + 1:02d}.jpg")
                             try:
                                 async with client.stream("GET", img_url, headers=headers) as resp:
                                     if resp.status_code == 200:
@@ -248,7 +280,7 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
                     result["new_images"] += 1
                     new_downloaded.append((idx, aweme_id, "图集", desc))
                 else:
-                    print(f"      ❌ 无图集链接")
+                    print("      ❌ 无图集链接")
                     result["failed"] += 1
             else:
                 video_data = parsed.get("video_data", {})
@@ -265,7 +297,7 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
                     download_url = url_list[0] if url_list else None
 
                 if not download_url:
-                    print(f"      ❌ 无下载链接")
+                    print("      ❌ 无下载链接")
                     result["failed"] += 1
                     continue
 
@@ -315,14 +347,10 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
     }
     if deleted_ids:
         log_entry["deleted_ids"] = sorted(
-            f"{existing.get(did, ('???', False, '???'))[2]}_{did}"
-            for did in deleted_ids
+            f"{existing.get(did, ('???', False, '???'))[2]}_{did}" for did in deleted_ids
         )
     if new_downloaded:
-        log_entry["new_ids"] = [
-            f"{seq:03d}_{aweme_id}"
-            for seq, aweme_id, _, _ in new_downloaded
-        ]
+        log_entry["new_ids"] = [f"{seq:03d}_{aweme_id}" for seq, aweme_id, _, _ in new_downloaded]
     if dry_run and new_videos:
         log_entry["pending_ids"] = [v.get("aweme_id") for v in new_videos]
     append_log(log_entry)
@@ -362,11 +390,11 @@ async def main():
             print(f"❌ 未找到匹配 '{target}' 的用户")
             return
 
-    print(f"{'='*50}")
+    print(f"{'=' * 50}")
     print(f"🔄 同步检查 ({'预览模式' if dry_run else '正式下载'})")
     if dry_run:
-        print(f"   使用 --dry-run 仅查看新增，不加 --dry-run 则实际下载")
-    print(f"{'='*50}")
+        print("   使用 --dry-run 仅查看新增，不加 --dry-run 则实际下载")
+    print(f"{'=' * 50}")
 
     total_new_videos = 0
     total_new_images = 0
@@ -380,8 +408,8 @@ async def main():
         total_failed += result["failed"]
         total_deleted += result["deleted"]
 
-    print(f"\n{'='*50}")
-    print(f"📊 同步完成")
+    print(f"\n{'=' * 50}")
+    print("📊 同步完成")
     if total_new_videos:
         print(f"   🆕 新增视频: {total_new_videos}")
     if total_new_images:
@@ -391,19 +419,21 @@ async def main():
     if total_deleted:
         print(f"   🗑️  作者已删除: {total_deleted}")
     if not total_new_videos and not total_new_images and not total_deleted:
-        print(f"   ✅ 全部已是最新，无变化")
-    print(f"{'='*50}")
+        print("   ✅ 全部已是最新，无变化")
+    print(f"{'=' * 50}")
 
     # 写汇总日志
-    append_log({
-        "type": "sync_summary",
-        "dry_run": dry_run,
-        "total_users": len(user_metas),
-        "total_new_videos": total_new_videos,
-        "total_new_images": total_new_images,
-        "total_deleted": total_deleted,
-        "total_failed": total_failed,
-    })
+    append_log(
+        {
+            "type": "sync_summary",
+            "dry_run": dry_run,
+            "total_users": len(user_metas),
+            "total_new_videos": total_new_videos,
+            "total_new_images": total_new_images,
+            "total_deleted": total_deleted,
+            "total_failed": total_failed,
+        }
+    )
 
 
 if __name__ == "__main__":

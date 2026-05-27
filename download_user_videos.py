@@ -3,10 +3,10 @@
 
 使用方式：
     python download_user_videos.py <用户主页URL>
-    
+
 示例：
     python download_user_videos.py "https://www.douyin.com/user/MS4wLjABAAAAJI9sVoEAVQU3r8Cp4ubMw3mrhO3aGNNEuM-M-S2oy3PjW5gGM5vYrgAcIsTNzMfh"
-    
+
 依赖：
     运行前确保已配置 Cookie：
       1. 用 Cookie-Editor 导出 Netscape 格式 Cookie 到 cookies/douyin.txt
@@ -17,13 +17,12 @@
 import asyncio
 import json
 import os
-import sys
 import re
+import sys
 import time
-import httpx
+
 import aiofiles
-from datetime import datetime, timezone
-import asyncio as _asyncio
+import httpx
 
 # ── 将 lib 加入 Python 路径 ──
 LIB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib")
@@ -32,8 +31,15 @@ if LIB_PATH not in sys.path:
 
 
 # ── Cookie 过期检查 ──
-def check_cookie_expiry():
-    """检查 douyin cookie 是否过期，过期则提醒"""
+def check_cookie_expiry() -> bool:
+    """检查 douyin cookie 是否过期，过期则打印提醒。
+
+    检查 cookies/douyin.txt 中每个 cookie 的 expires 字段，
+    若已过期或即将在 7 天内过期，打印警告信息。
+
+    Returns:
+        True 表示 cookie 有效，False 表示文件缺失或已过期。
+    """
     cookie_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cookies", "douyin.txt")
     if not os.path.exists(cookie_file):
         print("⚠️  Cookie 文件不存在: cookies/douyin.txt")
@@ -45,14 +51,14 @@ def check_cookie_expiry():
     expired = []
     expiring_soon = []
 
-    with open(cookie_file, "r") as f:
+    with open(cookie_file) as f:
         for line in f:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
             # 去掉 #HttpOnly_ 前缀
             if line.startswith("#HttpOnly_"):
-                line = line[len("#HttpOnly_"):]
+                line = line[len("#HttpOnly_") :]
 
             parts = line.split("\t")
             if len(parts) >= 7:
@@ -70,15 +76,16 @@ def check_cookie_expiry():
         print("   更新步骤:")
         print("     1. 浏览器登录 https://www.douyin.com")
         print("     2. 用 Cookie-Editor 导出 Netscape 格式")
-        print(f"     3. 替换 cookies/douyin.txt 内容")
-        print(f"     4. 运行: python scripts/apply_cookies.py\n")
+        print("     3. 替换 cookies/douyin.txt 内容")
+        print("     4. 运行: python scripts/apply_cookies.py\n")
         return False
 
     if expiring_soon:
         print(f"⚠️  关键 Cookie 即将过期: {', '.join(expiring_soon)}")
-        print(f"   建议尽快更新\n")
+        print("   建议尽快更新\n")
 
     return True
+
 
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler
 from crawlers.hybrid.hybrid_crawler import HybridCrawler
@@ -115,7 +122,7 @@ async def download_video(video_url: str, filepath: str, headers: dict) -> bool:
 async def main():
     if len(sys.argv) < 2:
         print("用法: python download_user_videos.py <抖音用户主页URL>")
-        print("示例: python download_user_videos.py \"https://www.douyin.com/user/MS4wLjABAAAA...\"")
+        print('示例: python download_user_videos.py "https://www.douyin.com/user/MS4wLjABAAAA..."')
         sys.exit(1)
 
     # ── Cookie 过期检查 ──
@@ -129,7 +136,9 @@ async def main():
     print(f"🔍 用户 sec_user_id: {sec_user_id}")
 
     # 创建下载目录
-    output_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "downloads", sec_user_id[:16])
+    output_dir = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)), "data", "downloads", sec_user_id[:16]
+    )
     os.makedirs(output_dir, exist_ok=True)
     print(f"📁 下载目录: {output_dir}")
 
@@ -137,7 +146,7 @@ async def main():
     meta = {"sec_user_id": sec_user_id, "url": url, "downloaded_at": time.time()}
     with open(os.path.join(output_dir, "_meta.json"), "w") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
-    print(f"📄 元数据已保存")
+    print("📄 元数据已保存")
 
     # 初始化爬虫
     douyin_crawler = DouyinWebCrawler()
@@ -158,20 +167,20 @@ async def main():
                 max_cursor=max_cursor,
                 count=20,
             )
-            
+
             # 解析结果
             aweme_list = result.get("aweme_list", [])
             all_videos.extend(aweme_list)
-            
+
             # 更新分页信息
             max_cursor = result.get("max_cursor", 0)
             has_more = result.get("has_more", False)
-            
+
             print(f"  第 {page} 页: 获取到 {len(aweme_list)} 个视频 (累计 {len(all_videos)} 个)")
-            
+
             if not aweme_list:
                 break
-                
+
         except Exception as e:
             print(f"  ❌ 获取第 {page} 页失败: {e}")
             break
@@ -208,7 +217,7 @@ async def main():
         filepath = os.path.join(output_dir, filename)
 
         if os.path.exists(filepath) and os.path.getsize(filepath) > 1024:
-            print(f"  ⏭️ 已存在，跳过")
+            print("  ⏭️ 已存在，跳过")
             skip_count += 1
             continue
 
@@ -224,11 +233,15 @@ async def main():
             if media_type == "image" or is_image:
                 # ── 图集：下载所有图片 ──
                 image_data = parsed.get("image_data", {})
-                image_urls = image_data.get("no_watermark_image_list", []) or image_data.get("watermark_image_list", [])
+                image_urls = image_data.get("no_watermark_image_list", []) or image_data.get(
+                    "watermark_image_list", []
+                )
                 if not image_urls:
                     # 从原始数据中提取
                     images = video.get("images", [])
-                    image_urls = [img.get("url_list", [None])[0] for img in images if img.get("url_list")]
+                    image_urls = [
+                        img.get("url_list", [None])[0] for img in images if img.get("url_list")
+                    ]
                     image_urls = [u for u in image_urls if u]
 
                 if image_urls:
@@ -236,13 +249,13 @@ async def main():
                     os.makedirs(img_dir, exist_ok=True)
                     dl_ok = 0
                     for ii, img_url in enumerate(image_urls):
-                        img_path = os.path.join(img_dir, f"{ii+1:02d}.jpg")
+                        img_path = os.path.join(img_dir, f"{ii + 1:02d}.jpg")
                         if await download_video(img_url, img_path, headers):
                             dl_ok += 1
                     print(f"  ✅ 图集下载完成 ({dl_ok}/{len(image_urls)} 张)")
                     success_count += 1
                 else:
-                    print(f"  ❌ 无法获取图集下载链接")
+                    print("  ❌ 无法获取图集下载链接")
                     fail_count += 1
             else:
                 # ── 视频：获取无水印链接 ──
@@ -262,11 +275,11 @@ async def main():
                     download_url = url_list[0] if url_list else None
 
                 if not download_url:
-                    print(f"  ❌ 无法获取下载链接")
+                    print("  ❌ 无法获取下载链接")
                     fail_count += 1
                     continue
 
-                print(f"  ⬇️ 正在下载...")
+                print("  ⬇️ 正在下载...")
                 success = await download_video(download_url, filepath, headers)
 
                 if success:
@@ -295,7 +308,9 @@ async def main():
 
     # ── 下载完成后自动运行重命名脚本 ──
     try:
-        rename_script = os.path.join(os.path.dirname(os.path.abspath(__file__)), "scripts", "download", "rename_user_dirs.py")
+        rename_script = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)), "scripts", "download", "rename_user_dirs.py"
+        )
         print("\n📦 下载完成，正在运行重命名脚本 scripts/download/rename_user_dirs.py ...")
         proc = await asyncio.create_subprocess_exec(
             sys.executable,
@@ -324,4 +339,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-

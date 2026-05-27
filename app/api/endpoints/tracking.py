@@ -6,9 +6,7 @@
 import json
 import os
 import time
-from collections import OrderedDict
 from datetime import datetime
-from typing import Optional
 
 from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
@@ -30,14 +28,23 @@ _DEDUP_MAX_DAYS = 7  # 最多缓存7天
 
 
 def _load_seen_ids(date_str: str) -> set:
-    """加载某天已记录的 aweme_id，带缓存"""
+    """加载某天已记录的 aweme_id，带内存缓存。
+
+    缓存最多保留 _DEDUP_MAX_DAYS 天，避免重复读取文件。
+
+    Args:
+        date_str: 日期字符串，格式 YYYYMMDD。
+
+    Returns:
+        该日期已记录的 aweme_id 集合。
+    """
     if date_str in _dedup_cache:
         return _dedup_cache[date_str]
 
     seen = set()
     day_file = os.path.join(TRACKING_DIR, f"feed_{date_str}.jsonl")
     if os.path.exists(day_file):
-        with open(day_file, "r", encoding="utf-8") as f:
+        with open(day_file, encoding="utf-8") as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -58,8 +65,8 @@ def _load_seen_ids(date_str: str) -> set:
     return seen
 
 
-def _prune_old_cache():
-    """清理过期缓存"""
+def _prune_old_cache() -> None:
+    """清理 _dedup_cache 中过期（非今天）的缓存条目。"""
     today = datetime.now().strftime("%Y%m%d")
     for date_str in list(_dedup_cache.keys()):
         if date_str < today:
@@ -134,7 +141,9 @@ async def receive_feed_snapshot(snapshot: FeedSnapshot, request: Request):
 async def get_tracking_history(request: Request):
     """返回所有历史快照的日期和数量（按 aweme_id 去重）"""
     _ensure_dir()
-    files = sorted([f for f in os.listdir(TRACKING_DIR) if f.startswith("feed_") and f.endswith(".jsonl")])
+    files = sorted(
+        [f for f in os.listdir(TRACKING_DIR) if f.startswith("feed_") and f.endswith(".jsonl")]
+    )
 
     history = []
     for fname in files:
@@ -142,7 +151,7 @@ async def get_tracking_history(request: Request):
         total_snapshots = 0
         total_raw = 0
         unique_ids = set()
-        with open(fpath, "r") as f:
+        with open(fpath) as f:
             for line in f:
                 line = line.strip()
                 if line:
@@ -157,13 +166,15 @@ async def get_tracking_history(request: Request):
                         pass
 
         date_str = fname.replace("feed_", "").replace(".jsonl", "")
-        history.append({
-            "date": date_str,
-            "snapshots": total_snapshots,
-            "raw_items": total_raw,
-            "unique_items": len(unique_ids),
-            "file": fname,
-        })
+        history.append(
+            {
+                "date": date_str,
+                "snapshots": total_snapshots,
+                "raw_items": total_raw,
+                "unique_items": len(unique_ids),
+                "file": fname,
+            }
+        )
 
     return ResponseModel(code=200, data=history)
 
@@ -181,7 +192,7 @@ async def get_tracking_detail(
 
     seen_ids = set()
     snapshots = []
-    with open(fpath, "r") as f:
+    with open(fpath) as f:
         for line in f:
             line = line.strip()
             if line:
@@ -201,32 +212,36 @@ async def get_tracking_detail(
                 except json.JSONDecodeError:
                     pass
 
-    return ResponseModel(code=200, data={
-        "date": date,
-        "unique_items": len(seen_ids),
-        "snapshots": snapshots,
-    })
+    return ResponseModel(
+        code=200,
+        data={
+            "date": date,
+            "unique_items": len(seen_ids),
+            "snapshots": snapshots,
+        },
+    )
 
 
 @router.get("/stats", summary="获取趋势统计数据（去重）")
 async def get_tracking_stats(request: Request):
     """计算各话题/类别随时间的变化趋势（按 aweme_id 去重）"""
     _ensure_dir()
-    files = sorted([f for f in os.listdir(TRACKING_DIR) if f.startswith("feed_") and f.endswith(".jsonl")])
+    files = sorted(
+        [f for f in os.listdir(TRACKING_DIR) if f.startswith("feed_") and f.endswith(".jsonl")]
+    )
 
     if not files:
         return ResponseModel(code=200, data={"trends": [], "message": "暂无数据"})
 
     # 按天汇总话题频率
     daily_tags = {}
-    daily_categories = {}
 
     for fname in files:
         date_str = fname.replace("feed_", "").replace(".jsonl", "")
         fpath = os.path.join(TRACKING_DIR, fname)
 
         tags_counter = {}
-        with open(fpath, "r") as f:
+        with open(fpath) as f:
             for line in f:
                 if line.strip():
                     record = json.loads(line)
@@ -241,7 +256,9 @@ async def get_tracking_stats(request: Request):
     for tags in daily_tags.values():
         all_tags.update(tags.keys())
 
-    top_tags = sorted(all_tags, key=lambda t: sum(d.get(t, 0) for d in daily_tags.values()), reverse=True)[:15]
+    top_tags = sorted(
+        all_tags, key=lambda t: sum(d.get(t, 0) for d in daily_tags.values()), reverse=True
+    )[:15]
 
     # 生成趋势数据
     trend_dates = sorted(daily_tags.keys())
@@ -249,13 +266,18 @@ async def get_tracking_stats(request: Request):
     for tag in top_tags:
         points = []
         for d in trend_dates:
-            points.append({
-                "date": d,
-                "count": daily_tags[d].get(tag, 0),
-            })
+            points.append(
+                {
+                    "date": d,
+                    "count": daily_tags[d].get(tag, 0),
+                }
+            )
         trends.append({"tag": tag, "points": points})
 
-    return ResponseModel(code=200, data={
-        "trend_dates": trend_dates,
-        "trends": trends,
-    })
+    return ResponseModel(
+        code=200,
+        data={
+            "trend_dates": trend_dates,
+            "trends": trends,
+        },
+    )

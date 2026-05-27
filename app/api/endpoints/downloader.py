@@ -6,14 +6,14 @@
 
 import os
 import uuid
-import yaml
 
-from fastapi import APIRouter, Query, Request, HTTPException
+import yaml
+from crawlers.hybrid.hybrid_crawler import HybridCrawler
+from fastapi import APIRouter, HTTPException, Query, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
-from app.api.models import ResponseModel, ErrorResponse
-from crawlers.hybrid.hybrid_crawler import HybridCrawler
+from app.api.models import ResponseModel
 
 router = APIRouter()
 crawler = HybridCrawler()
@@ -23,12 +23,16 @@ config_path = os.path.join(
     os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
     "config.yaml",
 )
-with open(config_path, "r", encoding="utf-8") as f:
+with open(config_path, encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 
-def _cleanup_file(path: str):
-    """下载完成后清理临时文件"""
+def _cleanup_file(path: str) -> None:
+    """下载完成后清理临时文件。
+
+    Args:
+        path: 要清理的临时文件路径。
+    """
     try:
         if os.path.exists(path):
             os.remove(path)
@@ -55,7 +59,7 @@ async def download_video(
         # 解析视频数据
         data = await crawler.hybrid_parsing_single_video(url=url, minimal=True)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"解析视频失败: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"解析视频失败: {e!s}")
 
     if data.get("type") != "video":
         raise HTTPException(status_code=400, detail="该链接不是视频类型，请使用图集下载接口")
@@ -91,8 +95,8 @@ async def download_video(
         filepath = os.path.join(download_dir, filename)
 
         try:
-            import httpx
             import aiofiles
+            import httpx
 
             headers = {
                 "User-Agent": (
@@ -116,7 +120,7 @@ async def download_video(
                 background=BackgroundTask(_cleanup_file, filepath),
             )
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"下载视频失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"下载视频失败: {e!s}")
 
 
 @router.get("/images", summary="下载图集图片")
@@ -136,7 +140,7 @@ async def download_images(
     try:
         data = await crawler.hybrid_parsing_single_video(url=url, minimal=True)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"解析图集失败: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"解析图集失败: {e!s}")
 
     if data.get("type") != "image":
         raise HTTPException(status_code=400, detail="该链接不是图集类型，请使用视频下载接口")
@@ -179,4 +183,4 @@ async def get_download_info(
         data = await crawler.hybrid_parsing_single_video(url=url, minimal=True)
         return ResponseModel(code=200, message="获取下载信息成功", data=data)
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"获取下载信息失败: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"获取下载信息失败: {e!s}")

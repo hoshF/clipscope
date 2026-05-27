@@ -25,40 +25,148 @@
 
 import json
 import os
-import sys
 import re
+import sys
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 
 from utils import data_utils
 
-
 # ── 简单停用词表 ──
 STOP_WORDS = {
-    "的", "了", "是", "在", "我", "有", "和", "就", "不", "人", "都", "一",
-    "一个", "上", "也", "很", "到", "说", "要", "去", "你", "会", "着",
-    "没有", "看", "好", "自己", "这", "他", "她", "它", "们", "那", "些",
-    "吗", "吧", "啊", "呢", "呀", "哦", "嗯", "哈", "嘿", "啦", "嘛",
-    "这个", "那个", "什么", "怎么", "为什么", "因为", "所以", "但是",
-    "可以", "还是", "就是", "不是", "真的", "这么", "那么", "https",
-    "http", "www", "com", "@", "#", "转发", "回复",
+    "的",
+    "了",
+    "是",
+    "在",
+    "我",
+    "有",
+    "和",
+    "就",
+    "不",
+    "人",
+    "都",
+    "一",
+    "一个",
+    "上",
+    "也",
+    "很",
+    "到",
+    "说",
+    "要",
+    "去",
+    "你",
+    "会",
+    "着",
+    "没有",
+    "看",
+    "好",
+    "自己",
+    "这",
+    "他",
+    "她",
+    "它",
+    "们",
+    "那",
+    "些",
+    "吗",
+    "吧",
+    "啊",
+    "呢",
+    "呀",
+    "哦",
+    "嗯",
+    "哈",
+    "嘿",
+    "啦",
+    "嘛",
+    "这个",
+    "那个",
+    "什么",
+    "怎么",
+    "为什么",
+    "因为",
+    "所以",
+    "但是",
+    "可以",
+    "还是",
+    "就是",
+    "不是",
+    "真的",
+    "这么",
+    "那么",
+    "https",
+    "http",
+    "www",
+    "com",
+    "@",
+    "#",
+    "转发",
+    "回复",
     # 抖音表情转译词（非用户真实表达，应过滤）
-    "舔屏", "流泪", "发呆", "玫瑰", "黑脸", "呲牙", "摸头", "比心",
-    "小鼓掌", "泣不成声", "酷拽", "鼓掌", "爱心", "捂脸", "送心",
-    "抱抱你", "飞吻", "来看我", "赞", "惊喜", "惊恐", "憨笑", "大笑",
-    "可爱", "亲亲", "吐舌", "白眼", "抠鼻", "阴险", "右哼哼", "左哼哼",
-    "哈欠", "鄙视", "委屈", "骷髅", "口罩", "皱眉", "色", "得意",
-    "睡", "撇嘴", "流泪", "愉快", "害羞", "调皮", "调皮", "尴尬",
+    "舔屏",
+    "流泪",
+    "发呆",
+    "玫瑰",
+    "黑脸",
+    "呲牙",
+    "摸头",
+    "比心",
+    "小鼓掌",
+    "泣不成声",
+    "酷拽",
+    "鼓掌",
+    "爱心",
+    "捂脸",
+    "送心",
+    "抱抱你",
+    "飞吻",
+    "来看我",
+    "赞",
+    "惊喜",
+    "惊恐",
+    "憨笑",
+    "大笑",
+    "可爱",
+    "亲亲",
+    "吐舌",
+    "白眼",
+    "抠鼻",
+    "阴险",
+    "右哼哼",
+    "左哼哼",
+    "哈欠",
+    "鄙视",
+    "委屈",
+    "骷髅",
+    "口罩",
+    "皱眉",
+    "色",
+    "得意",
+    "睡",
+    "撇嘴",
+    "流泪",
+    "愉快",
+    "害羞",
+    "调皮",
+    "调皮",
+    "尴尬",
 }
 
 
-
-
-
 def load_comments(sec_user_id_or_dir: str) -> tuple:
-    """加载评论数据"""
+    """加载评论数据及元信息。
+
+    支持传入 sec_user_id 或直接传入 data/comments/ 下的目录路径。
+
+    Args:
+        sec_user_id_or_dir: 用户的 sec_user_id 或 data/comments/ 下的目录路径。
+
+    Returns:
+        (comments, target_user, data_dir) 元组，
+        comments 为评论列表，target_user 为用户元信息字典，data_dir 为数据目录路径。
+    """
     if os.path.isdir(sec_user_id_or_dir):
         data_dir = sec_user_id_or_dir
     else:
@@ -68,39 +176,56 @@ def load_comments(sec_user_id_or_dir: str) -> tuple:
             if os.path.isdir(guess):
                 data_dir = guess
             else:
-                data_dir = os.path.join(data_utils.PROJECT_ROOT, "data", "comments", sec_user_id_or_dir[:16])
+                data_dir = os.path.join(
+                    data_utils.PROJECT_ROOT, "data", "comments", sec_user_id_or_dir[:16]
+                )
 
     comments_path = os.path.join(data_dir, "comments.json")
     meta_path = os.path.join(data_dir, "_meta.json")
 
     if not os.path.exists(comments_path):
         print(f"❌ 未找到评论数据: {comments_path}")
-        print(f"   请先运行: python scripts/collect_comments.py <URL>")
+        print("   请先运行: python scripts/collect_comments.py <URL>")
         sys.exit(1)
 
-    with open(comments_path, "r", encoding="utf-8") as f:
+    with open(comments_path, encoding="utf-8") as f:
         data = json.load(f)
 
     comments = data.get("comments", [])
     target_user = {}
     if os.path.exists(meta_path):
-        with open(meta_path, "r", encoding="utf-8") as f:
+        with open(meta_path, encoding="utf-8") as f:
             meta = json.load(f)
             target_user = meta.get("target_user", {})
 
     return comments, target_user, data_dir
 
 
-
-
-
 def analyze_geo_distribution(comments: list) -> dict:
-    """分析 IP 归属地分布"""
+    """分析评论 IP 归属地分布。
+
+    委托 data_utils.analyze_ip_distribution 实现。
+
+    Args:
+        comments: 评论列表。
+
+    Returns:
+        地域分布字典，包含国内/海外统计。
+    """
     return data_utils.analyze_ip_distribution(comments)
 
 
 def analyze_active_time(comments: list) -> dict:
-    """分析评论活跃时段"""
+    """分析评论者的活跃时段分布。
+
+    根据评论的 create_time 字段统计各时段（凌晨/上午/下午/晚上）的评论量。
+
+    Args:
+        comments: 评论列表，每条需包含 create_time 字段。
+
+    Returns:
+        各时段的评论计数和占比字典。
+    """
     hourly = Counter()
     weekday = Counter()
 
@@ -109,7 +234,7 @@ def analyze_active_time(comments: list) -> dict:
         if not ts:
             continue
         try:
-            dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+            dt = datetime.fromtimestamp(ts, tz=UTC)
             hourly[dt.hour] += 1
             weekday[dt.strftime("%A")] += 1
         except (OSError, ValueError):
@@ -126,8 +251,9 @@ def analyze_active_time(comments: list) -> dict:
     }
 
     total = sum(time_slots.values()) or 1
-    time_slots_pct = {k: {"count": v, "percentage": round(v / total * 100, 1)}
-                      for k, v in time_slots.items()}
+    time_slots_pct = {
+        k: {"count": v, "percentage": round(v / total * 100, 1)} for k, v in time_slots.items()
+    }
 
     # 最活跃小时
     peak_hours = sorted(hourly.items(), key=lambda x: x[1], reverse=True)[:5]
@@ -141,7 +267,16 @@ def analyze_active_time(comments: list) -> dict:
 
 
 def analyze_follower_type(comments: list) -> dict:
-    """分析评论者类型分布（KOL / 普通用户 / 新用户）"""
+    """分析评论者的粉丝类型分布。
+
+    根据评论者的粉丝数、作品数等维度，将评论者分为 KOL、核心粉丝、普通用户等类型。
+
+    Args:
+        comments: 评论列表，每条需包含 user 字段（含 follower_count 等）。
+
+    Returns:
+        各粉丝类型的计数和占比字典。
+    """
     users = {}
     for c in comments:
         user = c.get("user", {})
@@ -163,12 +298,14 @@ def analyze_follower_type(comments: list) -> dict:
 
         if followers >= 10000:
             kols += 1
-            kols_list.append({
-                "uid": uid,
-                "nickname": user.get("nickname", "未知"),
-                "follower_count": followers,
-                "total_favorited": total_fav,
-            })
+            kols_list.append(
+                {
+                    "uid": uid,
+                    "nickname": user.get("nickname", "未知"),
+                    "follower_count": followers,
+                    "total_favorited": total_fav,
+                }
+            )
         elif followers >= 100:
             core_users += 1
         elif followers < 10 and following < 10:
@@ -193,7 +330,7 @@ def analyze_follower_type(comments: list) -> dict:
 def extract_keywords(comments: list, top_n: int = 50) -> list:
     """
     简单关键词提取：基于词频。
-    
+
     注意：这是一个基础实现。如需更准确的 NLP 关键词提取，
     可接入 jieba 分词 + TF-IDF。
     """
@@ -218,20 +355,65 @@ def extract_keywords(comments: list, top_n: int = 50) -> list:
 def analyze_sentiment_simple(comments: list) -> dict:
     """
     简单情感倾向分析。
-    
+
     基于正面/负面关键词匹配。这是轻量级实现，
     如需更准确的结果可接入专门的 NLP 情感分析模型。
     """
     positive_words = {
-        "好", "好看", "喜欢", "太棒", "优秀", "厉害", "可爱", "漂亮",
-        "美", "美美", "美美哒", "帅", "帅气", "赞", "点赞", "支持",
-        "牛逼", "牛", "强", "精彩", "绝了", "完美", "不错", "爱了",
-        "感动", "感人", "加油", "期待", "棒", "给力", "良心",
+        "好",
+        "好看",
+        "喜欢",
+        "太棒",
+        "优秀",
+        "厉害",
+        "可爱",
+        "漂亮",
+        "美",
+        "美美",
+        "美美哒",
+        "帅",
+        "帅气",
+        "赞",
+        "点赞",
+        "支持",
+        "牛逼",
+        "牛",
+        "强",
+        "精彩",
+        "绝了",
+        "完美",
+        "不错",
+        "爱了",
+        "感动",
+        "感人",
+        "加油",
+        "期待",
+        "棒",
+        "给力",
+        "良心",
     }
     negative_words = {
-        "差", "不好", "难看", "无聊", "讨厌", "恶心", "垃圾", "烂",
-        "假的", "骗人", "骗子", "举报", "拉黑", "取关", "晦气",
-        "无语", "烦", "恶心", "受不了", "辣鸡", "什么玩意",
+        "差",
+        "不好",
+        "难看",
+        "无聊",
+        "讨厌",
+        "恶心",
+        "垃圾",
+        "烂",
+        "假的",
+        "骗人",
+        "骗子",
+        "举报",
+        "拉黑",
+        "取关",
+        "晦气",
+        "无语",
+        "烦",
+        "恶心",
+        "受不了",
+        "辣鸡",
+        "什么玩意",
     }
 
     positive_count = 0
@@ -265,7 +447,7 @@ def analyze_sentiment_simple(comments: list) -> dict:
 def analyze_loyalty(comments: list) -> dict:
     """
     评论者忠诚度分析。
-    
+
     评估指标：
       - 跨视频评论者：在多个视频下都有评论
       - 高频评论者：评论总数多
@@ -292,8 +474,7 @@ def analyze_loyalty(comments: list) -> dict:
     high_freq = sum(1 for c in user_counts.values() if c >= 5)
 
     # 铁粉：跨视频 >= 3 且 评论 >= 5
-    loyal = sum(1 for uid in user_counts
-                if len(user_videos[uid]) >= 3 and user_counts[uid] >= 5)
+    loyal = sum(1 for uid in user_counts if len(user_videos[uid]) >= 3 and user_counts[uid] >= 5)
 
     # 最忠实的粉丝
     loyal_scores = []
@@ -304,18 +485,23 @@ def analyze_loyalty(comments: list) -> dict:
             times = user_times.get(uid, [])
             span = (max(times) - min(times)) / 86400 if len(times) >= 2 else 0
             score = comment_count * 0.5 + video_count * 1.0 + min(span / 30, 5)
-            loyal_scores.append({
-                "uid": uid,
-                "nickname": next(
-                    (c.get("user", {}).get("nickname", "")
-                     for c in comments if c.get("user", {}).get("uid", "") == uid),
-                    "未知"
-                ),
-                "comment_count": comment_count,
-                "video_count": video_count,
-                "time_span_days": round(span, 1),
-                "loyalty_score": round(score, 1),
-            })
+            loyal_scores.append(
+                {
+                    "uid": uid,
+                    "nickname": next(
+                        (
+                            c.get("user", {}).get("nickname", "")
+                            for c in comments
+                            if c.get("user", {}).get("uid", "") == uid
+                        ),
+                        "未知",
+                    ),
+                    "comment_count": comment_count,
+                    "video_count": video_count,
+                    "time_span_days": round(span, 1),
+                    "loyalty_score": round(score, 1),
+                }
+            )
 
     loyal_scores.sort(key=lambda x: x["loyalty_score"], reverse=True)
 
@@ -381,7 +567,7 @@ def format_report(profile: dict) -> str:
     t = profile["target_user"]
     lines = []
     lines.append("=" * 60)
-    lines.append(f"🎯 用户画像分析报告（评论版）")
+    lines.append("🎯 用户画像分析报告（评论版）")
     lines.append("=" * 60)
     lines.append(f"目标用户: {t.get('nickname', '未知')}")
     lines.append(f"分析时间: {profile['analysis_time']}")
@@ -411,10 +597,18 @@ def format_report(profile: dict) -> str:
     # ── 粉丝类型 ──
     ft = profile["follower_type"]
     lines.append("─── 👤 粉丝类型分布 ───")
-    lines.append(f"  🌟 KOL / 意见领袖 (粉丝>1万): {ft['kols']['count']} 人 ({ft['kols']['percentage']}%)")
-    lines.append(f"  💬 核心粉丝 (粉丝100-1万): {ft['core_users']['count']} 人 ({ft['core_users']['percentage']}%)")
-    lines.append(f"  👥 普通粉丝: {ft['normal_users']['count']} 人 ({ft['normal_users']['percentage']}%)")
-    lines.append(f"  🆕 新用户/低互动: {ft['new_users']['count']} 人 ({ft['new_users']['percentage']}%)")
+    lines.append(
+        f"  🌟 KOL / 意见领袖 (粉丝>1万): {ft['kols']['count']} 人 ({ft['kols']['percentage']}%)"
+    )
+    lines.append(
+        f"  💬 核心粉丝 (粉丝100-1万): {ft['core_users']['count']} 人 ({ft['core_users']['percentage']}%)"
+    )
+    lines.append(
+        f"  👥 普通粉丝: {ft['normal_users']['count']} 人 ({ft['normal_users']['percentage']}%)"
+    )
+    lines.append(
+        f"  🆕 新用户/低互动: {ft['new_users']['count']} 人 ({ft['new_users']['percentage']}%)"
+    )
     if ft["top_kols"]:
         lines.append("  发现 KOL:")
         for m in ft["top_kols"][:10]:
@@ -434,24 +628,32 @@ def format_report(profile: dict) -> str:
     lines.append(f"  😊 正面: {s['positive']['count']} ({s['positive']['percentage']}%)")
     lines.append(f"  😐 中性: {s['neutral']['count']} ({s['neutral']['percentage']}%)")
     lines.append(f"  😠 负面: {s['negative']['count']} ({s['negative']['percentage']}%)")
-    pos_bar = "█" * int(s['positive']['percentage'] / 2)
-    neg_bar = "█" * int(s['negative']['percentage'] / 2)
-    lines.append(f"  倾向: 正面 {pos_bar} {s['positive']['percentage']}%  |  负面 {neg_bar} {s['negative']['percentage']}%")
+    pos_bar = "█" * int(s["positive"]["percentage"] / 2)
+    neg_bar = "█" * int(s["negative"]["percentage"] / 2)
+    lines.append(
+        f"  倾向: 正面 {pos_bar} {s['positive']['percentage']}%  |  负面 {neg_bar} {s['negative']['percentage']}%"
+    )
     lines.append("")
 
     # ── 忠诚度 ──
     loy = profile["loyalty"]
     lines.append("─── ⭐ 粉丝忠诚度 ───")
     lines.append(f"  总评论者: {loy['total_commenters']} 人")
-    lines.append(f"  跨视频评论者: {loy['cross_video_commenters']['count']} 人 ({loy['cross_video_commenters']['percentage']}%)")
-    lines.append(f"  高频评论者: {loy['high_freq_commenters']['count']} 人 ({loy['high_freq_commenters']['percentage']}%)")
+    lines.append(
+        f"  跨视频评论者: {loy['cross_video_commenters']['count']} 人 ({loy['cross_video_commenters']['percentage']}%)"
+    )
+    lines.append(
+        f"  高频评论者: {loy['high_freq_commenters']['count']} 人 ({loy['high_freq_commenters']['percentage']}%)"
+    )
     lines.append(f"  💎 铁粉: {loy['loyal_fans']['count']} 人 ({loy['loyal_fans']['percentage']}%)")
     if loy["top_loyal_fans"]:
         lines.append("  铁粉榜 Top 10:")
         for i, fan in enumerate(loy["top_loyal_fans"][:10], 1):
-            lines.append(f"    {i:2d}. {fan['nickname']}  "
-                          f"(评论 {fan['comment_count']} 次, {fan['video_count']} 个视频, "
-                          f"跨度 {fan['time_span_days']} 天, 忠诚度 {fan['loyalty_score']})")
+            lines.append(
+                f"    {i:2d}. {fan['nickname']}  "
+                f"(评论 {fan['comment_count']} 次, {fan['video_count']} 个视频, "
+                f"跨度 {fan['time_span_days']} 天, 忠诚度 {fan['loyalty_score']})"
+            )
 
     lines.append("")
     lines.append("=" * 60)
