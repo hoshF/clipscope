@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.user.douyin-feed</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/Users/hoshf/Project/social-archive-douyin/.venv/bin/python</string>
+        <string>/Users/hoshf/Project/social-archive-douyin/scripts/collect/feed_collector.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/hoshf/Project/social-archive-douyin</string>
+
+    <!-- 每 300 秒（5 分钟）执行一次 -->
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <!-- 登录后立即执行一次 -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- 日志 -->
+    <key>StandardOutPath</key>
+    <string>/Users/hoshf/Project/social-archive-douyin/data/tracking/feed.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/hoshf/Project/social-archive-douyin/data/tracking/feed.err</string>
+
+    <!-- 低优先级，不影响日常使用 -->
+    <key>LowPriorityIO</key>
+    <true/>
+</dict>
+</plist>

@@ -7,7 +7,7 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/hoshf/Project/douyin-crawler-app/scripts/auto_sync.sh</string>
+        <string>/Users/hoshf/Project/social-archive-douyin/scripts/utils/auto_sync.sh</string>
     </array>
 
     <!-- 每天 12:00、18:00、22:00 执行 -->
@@ -42,9 +42,9 @@
 
     <!-- 日志 -->
     <key>StandardOutPath</key>
-    <string>/Users/hoshf/Project/douyin-crawler-app/data/tracking/launchd.log</string>
+    <string>/Users/hoshf/Project/social-archive-douyin/data/tracking/launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/hoshf/Project/douyin-crawler-app/data/tracking/launchd.err</string>
+    <string>/Users/hoshf/Project/social-archive-douyin/data/tracking/launchd.err</string>
 
     <key>LowPriorityIO</key>
     <true/>
