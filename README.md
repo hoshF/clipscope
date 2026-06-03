@@ -8,92 +8,77 @@ A Douyin (TikTok China) data collection & analysis toolkit built on top of [Douy
 
 ## 📦 Features
 
-| Feature | Tool | Description |
+| Feature | CLI Command | Description |
 |---|---|---|
-| 🎬 **Batch Download** | `download_user_videos.py` | Enter a user profile URL to download all their posts (watermark-free) |
-| 🔄 **Sync Updates** | `scripts/download/sync_downloads.py` | Compare local vs remote, download only new videos |
-| 📡 **Feed Tracking** | `scripts/collect/feed_collector.py` | Scheduled collection of recommendation feed data to track algorithmic trends |
-| 📊 **Trend Dashboard** | `static/dashboard.html` | Visualize hashtag frequency changes over time |
-| 🔍 **Profile Inference** | `scripts/analyze/analyze_recommend_portrait.py` | Infer how the algorithm profiles you through recommendation feed analysis |
-| 💬 **Comment Collection** | `scripts/collect/collect_comments.py` | Collect all comments under a user's videos (including IP locations, replies) |
-| 🔗 **Social Graph** | `scripts/analyze/analyze_social_graph.py` | Build relationship networks from comment interactions to discover communities and KOLs |
-| 🎯 **Fan Portrait** | `scripts/analyze/analyze_fan_portrait.py` | Analyze fan demographics, active hours, loyalty from comment data |
-| 🕵️ **Identity Mining** | `scripts/analyze/analyze_identity_mining.py` | Extract birthplace, education, relationships, and name clues from comments and post captions |
-| 🔎 **Commenter Value** | `scripts/analyze/analyze_commenter_value.py` | Evaluate active commenters' followers/posts/popularity to decide who's worth crawling |
-| 🔑 **Cookie Management** | `scripts/utils/apply_cookies.py` | Apply cookies from Netscape format files and check expiry |
-| 🌐 **API Service** | `app/main.py` | FastAPI-based HTTP interface |
+| 🎬 **Batch Download** | `uv run douyin sync` | Check & download new videos from tracked users |
+| 📡 **Feed Tracking** | `uv run douyin feed --loop` | Scheduled collection of recommendation feed data |
+| 💬 **Comment Collection** | `uv run douyin comments <url>` | Collect all comments under a user's videos |
+| 🔗 **Social Graph** | `uv run douyin analyze social-graph <user>` | Build relationship networks from comments |
+| 🎯 **Fan Portrait** | `uv run douyin analyze fan-portrait <user>` | Analyze fan demographics & loyalty |
+| 🕵️ **Identity Mining** | `uv run douyin analyze identity <user>` | Extract birthplace, education, relationships |
+| 🔎 **Commenter Value** | `uv run douyin analyze commenter-value <user>` | Evaluate active commenters' worth |
+| 📊 **Profile Inference** | `uv run douyin analyze recommend-portrait` | Infer algorithm's user profile |
+| 🔄 **Upstream Sync** | `uv run douyin upstream update` | Update crawler engine from upstream |
+| 🔑 **Cookie Mgmt** | `uv run douyin cookies apply` | Apply cookies from browser export |
+| 📋 **Log Management** | `uv run douyin logs clean` | Clean empty/pruned log files |
+| 🌐 **API Service** | `uv run uvicorn app.main:app` | FastAPI-based HTTP interface |
 
 ---
 
 ## 📁 Project Structure
 
 ```
-douyin-crawler-app/
+social-archive-douyin/
 │
-├── app/                          ← API Server
-│   ├── main.py                   FastAPI entry point
+├── app/                          ← API Server (FastAPI)
+│   ├── main.py
 │   ├── api/
-│   │   ├── router.py             Route aggregation
-│   │   ├── models.py             Response models
+│   │   ├── router.py
+│   │   ├── models.py
 │   │   └── endpoints/
-│   │       ├── parser.py         Data parsing endpoints
-│   │       ├── downloader.py     File download endpoints
-│   │       └── tracking.py       Feed tracking endpoints
-│   └── static/
-│       └── dashboard.html        Trend dashboard
+│   │       ├── parser.py
+│   │       ├── downloader.py
+│   │       └── tracking.py
+│   └── static/dashboard.html     Feed trend dashboard
 │
 ├── scripts/                      ← CLI Tools
-│   ├── download/                 🎬 Download
-│   │   ├── sync_downloads.py     Incremental sync download
-│   │   └── rename_user_dirs.py   Rename user directories
-│   ├── collect/                  📡 Data Collection
-│   │   ├── feed_collector.py     Feed collector (scheduled task)
-│   │   └── collect_comments.py   💬 Comment collection
-│   ├── analyze/                  🔍 Data Analysis
-│   │   ├── analyze_recommend_portrait.py  📡 Recommendation profile
-│   │   ├── analyze_social_graph.py        🔗 Social graph
-│   │   ├── analyze_fan_portrait.py        🎯 Fan portrait
-│   │   ├── analyze_identity_mining.py     🕵️ Identity mining
-│   │   └── analyze_commenter_value.py     🔎 Commenter value
-│   ├── utils/                    🔧 Utilities
-│   │   ├── __init__.py
-│   │   ├── data_utils.py         Shared data analysis functions
-│   │   ├── apply_cookies.py      Cookie management
-│   │   └── auto_sync.sh          Scheduled sync script
-│   ├── com.user.douyin-sync.plist  launchd scheduled task config
-│   └── douyin-feed-observer.user.js  Tampermonkey script (alternative)
+│   ├── cli.py                    Unified entry point (uv run douyin)
+│   ├── download/
+│   │   ├── sync_downloads.py
+│   │   └── rename_user_dirs.py
+│   ├── collect/
+│   │   ├── feed_collector.py
+│   │   └── collect_comments.py
+│   ├── analyze/
+│   │   ├── analyze_recommend_portrait.py
+│   │   ├── analyze_social_graph.py
+│   │   ├── analyze_fan_portrait.py
+│   │   ├── analyze_identity_mining.py
+│   │   └── analyze_commenter_value.py
+│   └── utils/
+│       ├── data_utils.py
+│       ├── apply_cookies.py
+│       ├── check_upstream.py
+│       └── auto_sync.sh
 │
-├── lib/                          ← Crawler Engine (git clone)
-│   └── crawlers/
-│       ├── douyin/web/           Douyin web crawler
-│       ├── tiktok/web/           TikTok web crawler
-│       ├── tiktok/app/           TikTok app crawler
-│       ├── bilibili/web/         Bilibili web crawler
-│       └── hybrid/               Hybrid parser crawler
+├── lib/                          ← Crawler Engine (from upstream)
+│   └── crawlers/{douyin,tiktok,bilibili,hybrid}/
 │
-├── cookies/                      ← Cookie Files
-│   ├── douyin.txt                Douyin cookie (Netscape format)
-│   └── tiktok.txt                TikTok cookie
+├── tests/                        ← Test suite (pytest)
+│   ├── test_data_utils.py
+│   ├── test_check_upstream.py
+│   └── conftest.py
 │
-├── data/                         ← All Data
-│   ├── downloads/                Downloaded user videos/albums + analysis reports
-│   │   └── <username>/           Grouped by user (auto-sync analysis reports)
-│   │       ├── profile/         🎯 Fan portrait reports
-│   │       ├── relations/       🔗 Social graph reports
-│   │       └── identity/        🕵️ Identity reports
+├── cookies/                      ← Netscape-format cookie files
+├── data/
+│   ├── downloads/                Downloaded videos / analysis reports
 │   ├── comments/                 Comment collection data
-│   │   └── <sec_user_id>/       Grouped by user
-│   │       ├── comments.json    Full comment data
-│   │       ├── stats.json       Collection statistics
-│   │       ├── relations/       Social graph analysis
-│   │       └── profile/         Fan portrait analysis
-│   ├── tracking/                 Feed snapshots (JSONL format)
-│   └── temp/                     Temporary download cache
+│   ├── tracking/                 Feed snapshots + sync logs
+│   └── logs/                     Crawler logs
 │
-├── config.yaml                   Service configuration
-├── download_user_videos.py       One-click download script
-├── requirements.txt
-├── LICENSE                       Apache License 2.0
+├── .github/workflows/ci.yml      ← CI (Ruff + pytest)
+├── config.yaml
+├── pyproject.toml
 └── README.md
 ```
 
@@ -101,49 +86,46 @@ douyin-crawler-app/
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+### 1. Install
 
 ```bash
-# Recommended: use uv (100x faster than pip)
-brew install uv    # if you don't have uv yet
-cd douyin-crawler-app
-uv venv
-uv pip install -r requirements.txt
-uv pip install httpx==0.27.0 socksio rich gmssl tenacity \
-               pycryptodomex lz4 pyfiglet importlib_resources \
-               aiofiles qrcode pypng pywebio pywebio-battery \
-               browser-cookie3 numpy
+# Prerequisites: Python 3.11+, uv
+brew install uv
+git clone <repo-url> && cd social-archive-douyin
+uv sync --all-groups     # Install all deps (app + crawler + dev)
 ```
 
 ### 2. Configure Cookies
 
-Cookies are required as login credentials:
-
 ```bash
-# 1. Log in to https://www.douyin.com in your browser
-# 2. Export cookies in Netscape format using a Cookie-Editor extension
-# 3. Save/overwrite cookies/douyin.txt
-# 4. Apply cookies
-uv run python scripts/utils/apply_cookies.py
+# Export cookies from browser (Netscape format) → cookies/douyin.txt
+uv run douyin cookies apply
 ```
 
-### 3. Start Services
+### 3. Use
 
 ```bash
-# Start API server (provides dashboard and HTTP interfaces)
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir .
+# See all commands
+uv run douyin
 
-# Start feed collector (collects every 5 minutes)
-uv run python scripts/collect/feed_collector.py --loop --interval 5
+# Sync user videos (preview)
+uv run douyin sync -- --dry-run
+
+# Collect recommendation feed
+uv run douyin feed -- --loop
+
+# Check upstream updates
+uv run douyin upstream check
+
+# Manage logs
+uv run douyin logs
 ```
 
-### 4. Access
+### 4. Run Tests
 
-| URL | Description |
-|---|---|
-| http://localhost:8000/docs | API Documentation (Swagger UI) |
-| http://localhost:8000/static/dashboard.html | 📊 Feed Trend Dashboard |
-| http://localhost:8000/health | Health Check |
+```bash
+uv run pytest -v
+```
 
 ---
 
@@ -152,10 +134,8 @@ uv run python scripts/collect/feed_collector.py --loop --interval 5
 ### 1. Batch Download User Videos
 
 ```bash
-# Download all videos/albums from a user (auto-deduplication)
-uv run python download_user_videos.py "https://www.douyin.com/user/<userID>"
-
-# Supports both videos and albums, watermark-free, auto-categorized
+uv run douyin sync        # Sync all tracked users (dry-run first)
+uv run douyin sync -- --dry-run  # Preview mode
 ```
 
 **Download directory structure:**
@@ -169,23 +149,12 @@ data/downloads/<userID>/
 └── ...
 ```
 
-### 2. Sync Update Downloaded Users
-
-```bash
-# Check all users for new videos (preview mode)
-uv run python scripts/download/sync_downloads.py --dry-run
-
-# Actually download new content
-uv run python scripts/download/sync_downloads.py
-```
-
-### 3. Recommendation Feed Tracking
+### 2. Recommendation Feed Tracking
 
 The collector fetches your Douyin recommendation feed every 5 minutes, recording trending hashtags:
 
 ```bash
-# Start continuous collection
-uv run python scripts/collect/feed_collector.py --loop --interval 5
+uv run douyin feed -- --loop --interval 5
 ```
 
 Data is saved to `data/tracking/feed_YYYYMMDD.jsonl` (JSONL format, deduplicated). The trend dashboard displays it automatically.
@@ -193,8 +162,7 @@ Data is saved to `data/tracking/feed_YYYYMMDD.jsonl` (JSONL format, deduplicated
 ### 4. Profile Inference
 
 ```bash
-# Analyze recommendation feed to infer how the algorithm profiles you
-uv run python scripts/analyze/analyze_recommend_portrait.py --count 100
+uv run douyin analyze recommend-portrait
 ```
 
 Sample output:
@@ -210,20 +178,10 @@ Sample output:
 Collect all comments (including replies and IP locations) from a target user's videos, for fan profiling and social network analysis.
 
 ```bash
-# Collect all comments from a user (default: all videos + all comments + replies)
-uv run python scripts/collect/collect_comments.py "https://www.douyin.com/user/<userID>"
-
-# Limit scope: only the last 10 videos, max 1000 comments per video
-uv run python scripts/collect/collect_comments.py "https://..." --max-posts 10 --max-comments 1000
-
-# Skip replies, collect top-level comments only
-uv run python scripts/collect/collect_comments.py "https://..." --no-replies
-
-# Resume interrupted collection
-uv run python scripts/collect/collect_comments.py "https://..." --resume
-
-# Incremental sync (quick check for new comments, no full re-crawl needed)
-uv run python scripts/collect/collect_comments.py "https://..." --sync
+uv run douyin comments "https://www.douyin.com/user/<userID>"
+uv run douyin comments "https://..." -- --max-posts 10 --max-comments 1000
+uv run douyin comments "https://..." -- --no-replies
+uv run douyin comments "https://..." -- --resume
 ```
 
 **Output structure:**
@@ -246,8 +204,7 @@ data/comments/<userID>/
 Build interaction networks from collected comment data to discover core fan circles and opinion leaders.
 
 ```bash
-# Analyze comment relationships for a specific user
-uv run python scripts/analyze/analyze_social_graph.py <sec_user_id_or_dir>
+uv run douyin analyze social-graph <sec_user_id>
 ```
 
 Sample output:
@@ -265,8 +222,7 @@ Sample output:
 Analyze multi-dimensional fan demographics from comment data.
 
 ```bash
-# Analyze fan portrait
-uv run python scripts/analyze/analyze_fan_portrait.py <sec_user_id_or_dir>
+uv run douyin analyze fan-portrait <sec_user_id>
 ```
 
 | Dimension | Description |
@@ -283,8 +239,7 @@ uv run python scripts/analyze/analyze_fan_portrait.py <sec_user_id_or_dir>
 Extract identity clues from comment content and post captions.
 
 ```bash
-# Mine identity information
-uv run python scripts/analyze/analyze_identity_mining.py <sec_user_id_or_dir>
+uv run douyin analyze identity <sec_user_id>
 ```
 
 Analysis dimensions:
@@ -302,11 +257,8 @@ Analysis dimensions:
 Evaluate active commenters' user spaces to determine if they're worth crawling independently.
 
 ```bash
-# Evaluate Top 20 most active commenters
-uv run python scripts/analyze/analyze_commenter_value.py <sec_user_id_or_dir>
-
-# Evaluate Top 50
-uv run python scripts/analyze/analyze_commenter_value.py <sec_user_id> --top 50
+uv run douyin analyze commenter-value <sec_user_id>
+uv run douyin analyze commenter-value <sec_user_id> -- --top 50
 ```
 
 **Scoring dimensions** (composite score 0-100):
@@ -345,20 +297,48 @@ uv run python scripts/analyze/analyze_commenter_value.py <sec_user_id> --top 50
 
 ## 🔑 Cookie Management
 
-Cookies are essential. Use `cookies/douyin.txt` with `apply_cookies.py`:
-
 ```bash
-# Check current cookie expiry status
-uv run python scripts/utils/apply_cookies.py --check
+# Check expiry
+uv run douyin cookies -- --check
 
-# Apply cookies to the crawler configuration
-uv run python scripts/utils/apply_cookies.py
+# Apply from cookies/douyin.txt
+uv run douyin cookies apply
+
+# Clear from config
+uv run douyin cookies -- --clear
+
+# View config structure
+uv run douyin config
 ```
 
-**Cookie expiry criteria:**
-- `sessionid` / `sid_tt` — Login session, most critical. Expiry breaks all functionality (~30-60 days)
-- `__ac_nonce` — Short-lived anti-crawl token (a few hours), auto-refreshable
+**Critical cookies:**
+- `sessionid` / `sid_tt` — Login session, most critical (~30-60 days)
+- `__ac_nonce` — Short-lived anti-crawl token (hours)
 - `ttwid` — Device identifier, long-lived
+
+---
+
+## 🧪 Development
+
+```bash
+# Install dev dependencies
+uv sync --group dev
+
+# Run tests
+uv run pytest -v --cov
+
+# Lint & format
+uv run ruff check .
+uv run ruff format .
+
+# Check upstream updates
+uv run douyin upstream check
+
+# Apply upstream changes
+uv run douyin upstream update
+```
+
+CI is automatically run on push/PR via GitHub Actions: ruff check → ruff format → pytest.
 
 ---
 

@@ -1,6 +1,19 @@
 # =============================================================================
 # Douyin/TikTok/Bilibili Crawler API - Configuration
 # =============================================================================
+#
+# Config Architecture:
+#   config.yaml (this file)         →  Our app settings (API server, crawler defaults)
+#   cookies/douyin.txt              →  Douyin cookies (Netscape format, export from browser)
+#   cookies/tiktok.txt              →  TikTok cookies
+#   lib/crawlers/douyin/web/config.yaml  →  Upstream Douyin crawler config (Cookie auto-updated
+#                                            by scripts/utils/apply_cookies.py)
+#   lib/crawlers/bilibili/web/config.yaml →  Upstream Bilibili crawler config
+#
+# Cookie Management:
+#   1. Export cookies from browser (Netscape format) → cookies/douyin.txt
+#   2. Run: uv run douyin cookies apply
+#   3. This auto-updates lib/crawlers/douyin/web/config.yaml
 
 # Application settings
 app:

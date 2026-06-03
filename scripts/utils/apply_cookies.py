@@ -5,6 +5,7 @@ Reads Netscape-format cookie files from cookies/ and updates crawler config.
 Usage:
     python scripts/utils/apply_cookies.py              # Apply all cookies
     python scripts/utils/apply_cookies.py --check      # Check expiry only, don't apply
+    python scripts/utils/apply_cookies.py --clear      # Clear cookies from config files
     python scripts/utils/apply_cookies.py --platform douyin  # Update Douyin only
 """
 
@@ -112,12 +113,13 @@ def update_yaml_cookie(yaml_path: str, cookie_str: str) -> bool:
     with open(yaml_path, encoding="utf-8") as f:
         content = f.read()
 
-    # Replace cookie line
-    pattern = re.compile(r"^(      Cookie: ).*$", re.MULTILINE)
+    # Replace cookie line — handles both "Cookie: value" and "Cookie:" (empty)
+    pattern = re.compile(r"^(      Cookie:).*$", re.MULTILINE)
     if not pattern.search(content):
-        pattern = re.compile(r"^(      Cookie: ).*", re.MULTILINE)
+        print(f"  ⚠️  No Cookie field found in {os.path.relpath(yaml_path, ROOT)}")
+        return False
 
-    new_content = pattern.sub(rf"\1{cookie_str}", content)
+    new_content = pattern.sub(rf"\1 {cookie_str}", content)
 
     if new_content == content:
         print("  ⚠️  Cookie content unchanged")
@@ -186,16 +188,55 @@ def print_cookie_summary(cookies: list[dict], platform: str):
             print(f"   ❌ {name}: 未找到")
 
 
+def clear_cookies(platform: str) -> bool:
+    """Clear the cookie field in a platform's config file (set to empty).
+
+    Args:
+        platform: Platform name ("douyin" or "tiktok").
+
+    Returns:
+        True if cleared, False if file not found.
+    """
+    yaml_file = CONFIG_MAP.get(platform)
+    if not yaml_file or not os.path.exists(yaml_file):
+        print(f"  ❌ Config not found: {yaml_file}")
+        return False
+
+    with open(yaml_file, encoding="utf-8") as f:
+        content = f.read()
+
+    # Replace Cookie line with empty value — handles both "Cookie: value" and "Cookie:"
+    pattern = re.compile(r"^(      Cookie:).*$", re.MULTILINE)
+    if not pattern.search(content):
+        print(f"  ⚠️  No Cookie field found in {platform} config")
+        return False
+
+    new_content = pattern.sub(r"\1", content)
+    with open(yaml_file, "w", encoding="utf-8") as f:
+        f.write(new_content)
+    print(f"  🧹 Cleared Cookie in {os.path.relpath(yaml_file, ROOT)}")
+    return True
+
+
 def main():
     # 解析参数
     args = sys.argv[1:]
     check_only = "--check" in args
+    clear_mode = "--clear" in args
     platform_filter = None
     for a in args:
         if a.startswith("--platform="):
             platform_filter = a.split("=", 1)[1]
 
     platforms = [platform_filter] if platform_filter else ["douyin", "tiktok"]
+
+    # ── Clear mode ──
+    if clear_mode:
+        print("🧹 Clearing cookies from config files...")
+        for platform in platforms:
+            clear_cookies(platform)
+        print("\n✅ Done. Run 'uv run douyin cookies apply' to restore from cookies/*.txt")
+        return 0
 
     all_warnings = []
     any_updated = False

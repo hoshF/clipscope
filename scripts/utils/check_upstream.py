@@ -4,11 +4,14 @@ Compares the local lib/ (from Evil0ctal/Douyin_TikTok_Download_API)
 with the latest upstream code, filtering meaningful changes.
 
 Usage:
-    python scripts/utils/check_upstream.py                  # Check updates and show diffs
-    python scripts/utils/check_upstream.py --brief           # Show only changed file list
-    python scripts/utils/check_upstream.py --apply <file>    # Apply single upstream file locally
+    python scripts/utils/check_upstream.py                   # Check updates and show summary
+    python scripts/utils/check_upstream.py --brief            # Show only changed file list
+    python scripts/utils/check_upstream.py --apply <file>     # Apply single upstream file locally
+    python scripts/utils/check_upstream.py --apply-all        # Apply all upstream changes
+    python scripts/utils/check_upstream.py --auto             # Apply all changes (no prompt)
 """
 
+import hashlib
 import json
 import os
 import sys
@@ -52,7 +55,7 @@ IGNORE_EXTENSIONS = {".pyc", ".pyo", ".log"}
 
 
 def should_ignore(file_path: str) -> bool:
-    """Determine if a file should be ignored."""
+    """Determine if a file should be ignored (filter out noise)."""
     parts = file_path.split("/")
     filename = parts[-1]
     for part in parts[:-1]:
@@ -70,11 +73,25 @@ def is_low_priority(file_path: str) -> bool:
     return file_path.split("/")[-1] in {"requirements.txt", "config.yaml"}
 
 
+def compute_blob_sha(filepath: str) -> str:
+    """Compute the Git blob SHA1 hash for a local file.
+
+    Git blob hash = sha1("blob {size}\\0{content}").
+    This matches the SHA returned by GitHub's Git Trees API,
+    allowing hash-based comparison without downloading files.
+    """
+    with open(filepath, "rb") as f:
+        content = f.read()
+    blob = f"blob {len(content)}\0".encode() + content
+    return hashlib.sha1(blob).hexdigest()
+
+
 def fetch_upstream_tree() -> dict:
     """
-    通过 GitHub API 获取上游仓库的文件列表及其原始内容 URL。
+    Fetch upstream file tree with blob SHA hashes via GitHub API.
 
-    返回 {file_path: download_url} 映射。
+    Returns {file_path: {"sha": str, "url": str}} mapping.
+    Uses blob SHA for efficient comparison — no need to download each file.
     """
     import urllib.request
 
@@ -82,8 +99,9 @@ def fetch_upstream_tree() -> dict:
         f"https://api.github.com/repos/{UPSTREAM_REPO}/git/trees/{UPSTREAM_BRANCH}?recursive=1"
     )
 
+    req = urllib.request.Request(api_url, headers={"User-Agent": "check-upstream/1.0"})
     try:
-        with urllib.request.urlopen(api_url, timeout=15) as resp:
+        with urllib.request.urlopen(req, timeout=15) as resp:
             data = json.loads(resp.read().decode("utf-8"))
     except Exception as e:
         print(f"❌ Failed to fetch upstream repo info: {e}")
@@ -93,17 +111,21 @@ def fetch_upstream_tree() -> dict:
     files = {}
     for item in data.get("tree", []):
         if item["type"] == "blob" and not should_ignore(item["path"]):
-            # Build raw file URL
-            files[item["path"]] = (
-                f"https://raw.githubusercontent.com/{UPSTREAM_REPO}/{UPSTREAM_BRANCH}/{item['path']}"
-            )
-
+            files[item["path"]] = {
+                "sha": item["sha"],
+                "url": (
+                    f"https://raw.githubusercontent.com/{UPSTREAM_REPO}/{UPSTREAM_BRANCH}/{item['path']}"
+                ),
+            }
     return files
 
 
-def get_local_files() -> dict:
-    """Get all file contents from local lib/ directory."""
-    local_files = {}
+def get_local_file_hashes() -> dict:
+    """Get blob SHA hashes for all local lib/ files.
+
+    Returns {relative_path: blob_sha} mapping.
+    """
+    local_hashes = {}
     lib_path = Path(LIB_DIR)
 
     if not lib_path.exists():
@@ -117,64 +139,73 @@ def get_local_files() -> dict:
         if should_ignore(rel_path):
             continue
         try:
-            local_files[rel_path] = fpath.read_text(encoding="utf-8")
+            local_hashes[rel_path] = compute_blob_sha(str(fpath))
         except Exception:
-            pass  # 二进制文件跳过
+            pass  # binary files
 
-    return local_files
+    return local_hashes
 
 
-def check_updates(brief: bool = False) -> list:
+def fetch_upstream_content(file_path: str) -> str | None:
+    """Download a single file from upstream."""
+    import urllib.request
+
+    url = f"https://raw.githubusercontent.com/{UPSTREAM_REPO}/{UPSTREAM_BRANCH}/{file_path}"
+    req = urllib.request.Request(url, headers={"User-Agent": "check-upstream/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            return resp.read().decode("utf-8")
+    except Exception as e:
+        print(f"  ⚠️  Failed to fetch upstream {file_path}: {e}")
+        return None
+
+
+def check_updates() -> list:
     """
-    检查上游更新，返回变更文件列表。
+    Check upstream updates using blob SHA comparison (fast, no content download).
 
-    每个元素: {"file": str, "status": "added"|"modified"|"deleted", "low_priority": bool}
+    Each element: {"file": str, "status": "added"|"modified"|"deleted",
+                   "low_priority": bool, "sha": str}
     """
     print(f"🔍 Checking upstream updates: {UPSTREAM_REPO} @ {UPSTREAM_BRANCH}")
     print()
 
     upstream_files = fetch_upstream_tree()
-    local_files = get_local_files()
+    local_hashes = get_local_file_hashes()
 
     changes = []
 
-    # Check for new or modified upstream files
-    for fpath, url in upstream_files.items():
-        if fpath not in local_files:
+    # Check for new or modified upstream files (using blob SHA)
+    for fpath, info in upstream_files.items():
+        upstream_sha = info["sha"]
+        if fpath not in local_hashes:
             changes.append(
                 {
                     "file": fpath,
                     "status": "added",
                     "low_priority": is_low_priority(fpath),
+                    "sha": upstream_sha,
                 }
             )
-        else:
-            # Compare content
-            local_content = local_files[fpath]
-            try:
-                import urllib.request
+        elif local_hashes[fpath] != upstream_sha:
+            changes.append(
+                {
+                    "file": fpath,
+                    "status": "modified",
+                    "low_priority": is_low_priority(fpath),
+                    "sha": upstream_sha,
+                }
+            )
 
-                with urllib.request.urlopen(url, timeout=10) as resp:
-                    upstream_content = resp.read().decode("utf-8")
-                if local_content != upstream_content:
-                    changes.append(
-                        {
-                            "file": fpath,
-                            "status": "modified",
-                            "low_priority": is_low_priority(fpath),
-                        }
-                    )
-            except Exception:
-                pass  # 网络问题跳过
-
-    # Check for files that exist locally but were deleted upstream
-    for fpath in local_files:
+    # Check for files deleted upstream but still present locally
+    for fpath in local_hashes:
         if fpath not in upstream_files:
             changes.append(
                 {
                     "file": fpath,
                     "status": "deleted",
                     "low_priority": is_low_priority(fpath),
+                    "sha": None,
                 }
             )
 
@@ -184,97 +215,28 @@ def check_updates(brief: bool = False) -> list:
     return changes
 
 
-def show_diff(file_path: str):
-    """显示某个文件的详细 diff"""
-    upstream_url = (
-        f"https://raw.githubusercontent.com/{UPSTREAM_REPO}/{UPSTREAM_BRANCH}/{file_path}"
-    )
+def apply_upstream_file(file_path: str) -> bool:
+    """Download and apply a single upstream file to local lib/.
+
+    Returns True on success, False on failure.
+    """
+    content = fetch_upstream_content(file_path)
+    if content is None:
+        return False
+
     local_path = os.path.join(LIB_DIR, file_path)
-
-    try:
-        import urllib.request
-
-        with urllib.request.urlopen(upstream_url, timeout=10) as resp:
-            upstream_content = resp.read().decode("utf-8").splitlines(keepends=True)
-    except Exception as e:
-        print(f"  ⚠️  无法获取上游文件: {e}")
-        return
-
-    if not os.path.exists(local_path):
-        # 新增文件
-        print("  📄 上游新增文件（本地无此文件）:")
-        for line in upstream_content[:30]:
-            print(f"    + {line.rstrip()}")
-        if len(upstream_content) > 30:
-            print(f"    ... (共 {len(upstream_content)} 行)")
-        return
-
-    with open(local_path, encoding="utf-8") as f:
-        local_content = f.readlines()
-
-    # 简单的行对比
-    import difflib
-
-    diff = difflib.unified_diff(
-        local_content,
-        upstream_content,
-        fromfile=f"a/{file_path}",
-        tofile=f"b/{file_path}",
-        lineterm="",
-    )
-    diff_lines = list(diff)
-    if diff_lines:
-        # 限制显示行数
-        show_lines = diff_lines[:60]
-        for line in show_lines:
-            print(f"  {line}")
-        if len(diff_lines) > 60:
-            print(f"  ... (还有 {len(diff_lines) - 60} 行差异)")
-    else:
-        print("  (内容相同)")
+    os.makedirs(os.path.dirname(local_path), exist_ok=True)
+    with open(local_path, "w", encoding="utf-8") as f:
+        f.write(content)
+    return True
 
 
-def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(
-        description="检查上游仓库更新并对比本地 lib/ 差异",
-    )
-    parser.add_argument("--brief", action="store_true", help="仅列出变更文件，不显示详细 diff")
-    parser.add_argument(
-        "--apply", type=str, metavar="<file>", help="将上游的指定文件应用到本地 lib/"
-    )
-
-    args = parser.parse_args()
-
-    if args.apply:
-        # 应用单个文件
-        upstream_url = (
-            f"https://raw.githubusercontent.com/{UPSTREAM_REPO}/{UPSTREAM_BRANCH}/{args.apply}"
-        )
-        local_path = os.path.join(LIB_DIR, args.apply)
-        try:
-            import urllib.request
-
-            with urllib.request.urlopen(upstream_url, timeout=10) as resp:
-                content = resp.read().decode("utf-8")
-        except Exception as e:
-            print(f"❌ 无法获取上游文件: {e}")
-            sys.exit(1)
-
-        os.makedirs(os.path.dirname(local_path), exist_ok=True)
-        with open(local_path, "w", encoding="utf-8") as f:
-            f.write(content)
-        print(f"✅ 已更新: {args.apply}")
-        return
-
-    changes = check_updates(brief=args.brief)
-
+def print_changes(changes: list):
+    """Print a clean summary of changes."""
     if not changes:
         print("✅ 上游无更新，本地 lib/ 已是最新")
         return
 
-    # 按类别统计
     high_count = sum(1 for c in changes if not c["low_priority"])
     low_count = sum(1 for c in changes if c["low_priority"])
 
@@ -285,21 +247,137 @@ def main():
         print(f"   🟡 配置/依赖变更: {low_count} 个")
     print()
 
-    # 输出变更列表
+    status_icon = {"added": "🆕", "modified": "📝", "deleted": "🗑️"}
     for c in changes:
-        status_icon = {"added": "🆕", "modified": "📝", "deleted": "🗑️"}
         icon = status_icon.get(c["status"], "❓")
         priority_tag = " 🟡" if c["low_priority"] else ""
         print(f"  {icon} [{c['status'].upper()}] {c['file']}{priority_tag}")
 
-        if not args.brief and c["status"] != "deleted" and not c["low_priority"]:
-            show_diff(c["file"])
-            print()
+    print()
 
-    # 使用提示
-    print("\n💡 提示:")
-    print("   查看单个文件 diff:  python scripts/utils/check_upstream.py --brief")
-    print("   应用单个文件:      python scripts/utils/check_upstream.py --apply <文件路径>")
+
+def apply_all(changes: list, yes: bool = False) -> int:
+    """Apply all upstream changes.
+
+    Args:
+        changes: List of changes from check_updates().
+        yes: Skip confirmation prompt if True.
+
+    Returns:
+        Number of successfully applied files.
+    """
+    if not changes:
+        print("✅ 没有需要更新的文件")
+        return 0
+
+    print(f"📦 准备更新 {len(changes)} 个文件:")
+    for c in changes:
+        tag = " 🟡" if c["low_priority"] else ""
+        print(f"   {c['file']}{tag}")
+    print()
+
+    if not yes:
+        try:
+            response = input("❓ 确认应用以上变更? [y/N] ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            response = "n"
+        if response != "y":
+            print("⏭️  已取消")
+            return 0
+
+    success = 0
+    for c in changes:
+        if c["status"] == "deleted":
+            # File deleted upstream — leave it alone (don't delete local data)
+            print(f"  ⏭️  [DELETED] {c['file']} (上游已删除，本地保留)")
+            continue
+
+        if apply_upstream_file(c["file"]):
+            print(f"  ✅ [{'ADDED' if c['status'] == 'added' else 'UPDATED'}] {c['file']}")
+            success += 1
+        else:
+            print(f"  ❌ [FAILED] {c['file']}")
+
+    # Summary
+    high_count = sum(1 for c in changes if not c["low_priority"])
+    low_count = sum(1 for c in changes if c["low_priority"])
+    print(f"\n📊 更新完成: {success}/{len(changes)} 个文件成功")
+    if high_count:
+        print(
+            f"   🔴 源码: {sum(1 for c in changes if not c['low_priority'] and c['status'] != 'deleted')} 个"
+        )
+    if low_count:
+        print(
+            f"   🟡 配置: {sum(1 for c in changes if c['low_priority'] and c['status'] != 'deleted')} 个"
+        )
+
+    return success
+
+
+def main():
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        description="检查上游仓库更新并同步到本地 lib/",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "示例:\n"
+            "  %(prog)s                     # 检查更新并显示变更\n"
+            "  %(prog)s --brief             # 仅列出变更文件\n"
+            "  %(prog)s --apply <file>      # 应用单个文件\n"
+            "  %(prog)s --apply-all         # 批量应用所有变更（需确认）\n"
+            "  %(prog)s --auto              # 一键应用所有变更（无提示）\n"
+        ),
+    )
+    parser.add_argument("--brief", action="store_true", help="仅列出变更文件，不显示详细 diff")
+    parser.add_argument(
+        "--apply", type=str, metavar="<file>", help="将上游的指定文件应用到本地 lib/"
+    )
+    parser.add_argument("--apply-all", action="store_true", help="批量应用所有上游变更（需确认）")
+    parser.add_argument(
+        "--yes", "-y", action="store_true", help="跳过确认提示（配合 --apply-all 使用）"
+    )
+    parser.add_argument("--auto", action="store_true", help="一键更新: 等同于 --apply-all --yes")
+
+    args = parser.parse_args()
+
+    # --auto is shorthand for --apply-all --yes
+    if args.auto:
+        args.apply_all = True
+        args.yes = True
+
+    # --apply <file>: apply a single file
+    if args.apply:
+        print(f"📥 正在从上游获取: {args.apply}")
+        if apply_upstream_file(args.apply):
+            print(f"✅ 已更新: {args.apply}")
+        else:
+            print(f"❌ 更新失败: {args.apply}")
+            sys.exit(1)
+        return
+
+    # Check for updates
+    changes = check_updates()
+
+    if not changes:
+        print("✅ 上游无更新，本地 lib/ 已是最新")
+        return
+
+    # --apply-all or --auto: apply all changes
+    if args.apply_all:
+        print_changes(changes)
+        apply_all(changes, yes=args.yes)
+        return
+
+    # Default: just show changes
+    print_changes(changes)
+
+    # Usage tips
+    print("💡 提示:")
+    if any(not c["low_priority"] for c in changes):
+        print("   应用所有变更:  python scripts/utils/check_upstream.py --apply-all")
+        print("   一键更新:      python scripts/utils/check_upstream.py --auto")
+    print("   查看单个文件:   python scripts/utils/check_upstream.py --apply <文件路径>")
 
 
 if __name__ == "__main__":

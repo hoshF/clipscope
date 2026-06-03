@@ -8,46 +8,96 @@
 
 ## 📦 功能概览
 
-| 功能 | 工具 | 说明 |
+| 功能 | CLI 命令 | 说明 |
 |---|---|---|
-| 🎬 **批量下载用户视频** | `download_user_videos.py` | 输入用户主页链接，自动下载全部作品（无水印） |
-| 🔄 **同步更新** | `scripts/download/sync_downloads.py` | 对比本地和远程，只下载新增视频 |
-| 📡 **推荐流追踪** | `scripts/collect/feed_collector.py` | 定时采集推荐页数据，追踪算法变化趋势 |
-| 📊 **趋势看板** | `static/dashboard.html` | 可视化展示话题频率变化 |
-| 🔍 **用户画像分析** | `scripts/analyze/analyze_recommend_portrait.py` | 通过推荐流反推算法对你的兴趣判断 |
-| 💬 **评论采集** | `scripts/collect/collect_comments.py` | 采集用户所有视频下的评论（含 IP 归属地、子回复） |
-| 🔗 **关系拓扑** | `scripts/analyze/analyze_social_graph.py` | 基于评论互动构建用户关系网络，发现社群和 KOL |
-| 🎯 **粉丝画像** | `scripts/analyze/analyze_fan_portrait.py` | 从评论数据分析粉丝地域、活跃时段、忠诚度等 |
-| 🕵️ **身份挖掘** | `scripts/analyze/analyze_identity_mining.py` | 从评论+作品描述挖掘出生地、教育、社交关系、姓名线索 |
-| 🔎 **评论者探测** | `scripts/analyze/analyze_commenter_value.py` | 探测活跃评论者的粉丝/作品/热度，判断是否值得爬取 |
-| 🔑 **Cookie 管理** | `scripts/utils/apply_cookies.py` | 从 Netscape 格式文件应用 Cookie，检查过期 |
-| 🌐 **API 服务** | `app/main.py` | FastAPI 服务，提供 HTTP 接口 |
+| 🎬 **批量下载** | `uv run douyin sync` | 对比本地和远程，只下载新增视频 |
+| 📡 **推荐流追踪** | `uv run douyin feed --loop` | 定时采集推荐页数据 |
+| 💬 **评论采集** | `uv run douyin comments <url>` | 采集用户所有视频下的评论 |
+| 🔗 **关系拓扑** | `uv run douyin analyze social-graph <user>` | 构建用户关系网络 |
+| 🎯 **粉丝画像** | `uv run douyin analyze fan-portrait <user>` | 粉丝地域、活跃时段分析 |
+| 🕵️ **身份挖掘** | `uv run douyin analyze identity <user>` | 挖掘出生地、教育、关系线索 |
+| 🔎 **评论者价值** | `uv run douyin analyze commenter-value <user>` | 评估评论者是否值得爬取 |
+| 📊 **用户画像** | `uv run douyin analyze recommend-portrait` | 反推算法对你的兴趣判断 |
+| 🔄 **上游更新** | `uv run douyin upstream update` | 一键同步上游爬虫引擎更新 |
+| 🔑 **Cookie 管理** | `uv run douyin cookies apply` | 应用浏览器导出的 Cookie |
+| 📋 **日志管理** | `uv run douyin logs clean` | 清理空日志和过期日志 |
+| 🌐 **API 服务** | `uv run uvicorn app.main:app` | FastAPI HTTP 接口 |
 
 ---
 
 ## 📁 项目结构
 
 ```
-douyin-crawler-app/
+social-archive-douyin/
 │
-├── app/                          ← API 服务端
-│   ├── main.py                   FastAPI 入口
-│   ├── api/
-│   │   ├── router.py             路由聚合
-│   │   ├── models.py             响应模型
-│   │   └── endpoints/
-│   │       ├── parser.py         数据解析接口
-│   │       ├── downloader.py     文件下载接口
-│   │       └── tracking.py       推荐流追踪接口
-│   └── static/
-│       └── dashboard.html        趋势看板
-│
-├── scripts/                      ← CLI 工具
-│   ├── download/                  🎬 下载相关
-│   │   ├── sync_downloads.py     增量同步下载
-│   │   └── rename_user_dirs.py   重命名用户目录
-│   ├── collect/                   📡 数据采集
-│   │   ├── feed_collector.py     推荐流采集器（定时任务）
+├── app/                          ← API 服务端 (FastAPI)
+├── scripts/
+│   ├── cli.py                   统一入口 (uv run douyin)
+│   ├── download/                下载工具
+│   ├── collect/                 数据采集
+│   ├── analyze/                 数据分析
+│   └── utils/                   工具函数
+├── tests/                       测试 (pytest)
+├── lib/                         爬虫引擎（上游代码）
+├── cookies/                     Cookie 文件 (Netscape 格式)
+├── data/
+│   ├── downloads/               下载的视频/分析报告
+│   ├── comments/                评论数据
+│   ├── tracking/                推荐流快照 + 同步日志
+│   └── logs/                    爬虫日志
+├── .github/workflows/ci.yml     CI 配置
+├── config.yaml
+├── pyproject.toml
+└── README.md
+```
+
+---
+
+## 🚀 快速开始
+
+### 1. 安装
+
+```bash
+brew install uv
+cd social-archive-douyin
+uv sync --all-groups
+```
+
+### 2. 配置 Cookie
+
+```bash
+# 浏览器导出 Cookie (Netscape 格式) → cookies/douyin.txt
+uv run douyin cookies apply
+```
+
+### 3. 使用
+
+```bash
+# 查看所有命令
+uv run douyin
+
+# 同步用户视频（预览）
+uv run douyin sync -- --dry-run
+
+# 采集推荐流
+uv run douyin feed -- --loop
+
+# 检查上游更新
+uv run douyin upstream check
+
+# 管理日志
+uv run douyin logs
+```
+
+### 4. 运行测试
+
+```bash
+uv run pytest -v
+```
+
+---
+
+## 🎬 功能详情
 │   │   └── collect_comments.py   💬 评论采集
 │   ├── analyze/                   🔍 数据分析
 │   │   ├── analyze_recommend_portrait.py  📡 推荐流画像
