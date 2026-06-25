@@ -34,17 +34,19 @@ import re
 import sys
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 
-LIB_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib"
-)
-if LIB_PATH not in sys.path:
-    sys.path.insert(0, LIB_PATH)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
+from scripts.utils.paths import COMMENTS_DIR, ensure_project_paths
+
+ensure_project_paths()
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-COMMENTS_DIR = os.path.join(ROOT, "data", "comments")
+ROOT = str(PROJECT_ROOT)
+COMMENTS_DIR = str(COMMENTS_DIR)
 
 
 # ═══════════════════════════════════════════════════════════════════

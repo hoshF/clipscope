@@ -7,10 +7,9 @@
 
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/hoshf/Project/social-archive-douyin/scripts/utils/auto_sync.sh</string>
+        <string>__PROJECT_ROOT__/scripts/utils/auto_sync.sh</string>
     </array>
 
-    <!-- 每天 12:00、18:00、22:00 执行 -->
     <key>StartCalendarInterval</key>
     <array>
         <dict>
@@ -33,18 +32,16 @@
         </dict>
     </array>
 
-    <!-- 开机/登录后立即执行一次 -->
     <key>RunAtLoad</key>
     <true/>
 
     <key>ThrottleInterval</key>
     <integer>0</integer>
 
-    <!-- 日志 -->
     <key>StandardOutPath</key>
-    <string>/Users/hoshf/Project/social-archive-douyin/data/tracking/launchd.log</string>
+    <string>__PROJECT_ROOT__/data/tracking/launchd.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/hoshf/Project/social-archive-douyin/data/tracking/launchd.err</string>
+    <string>__PROJECT_ROOT__/data/tracking/launchd.err</string>
 
     <key>LowPriorityIO</key>
     <true/>

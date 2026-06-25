@@ -13,11 +13,12 @@ import os
 import sys
 from collections import Counter
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from scripts.utils.paths import LIB_DIR, PROJECT_ROOT as DEFAULT_PROJECT_ROOT, SCRIPTS_DIR
 
+PROJECT_ROOT = str(DEFAULT_PROJECT_ROOT)
 
-_SCRIPTS_PATH = os.path.join(PROJECT_ROOT, "scripts")
-_LIB_PATH = os.path.join(PROJECT_ROOT, "lib")
+_SCRIPTS_PATH = str(SCRIPTS_DIR)
+_LIB_PATH = str(LIB_DIR)
 for _p in (_SCRIPTS_PATH, _LIB_PATH):
     if _p not in sys.path:
         sys.path.insert(0, _p)

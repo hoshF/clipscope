@@ -1,4 +1,4 @@
-"""Shared test fixtures for the social-archive-douyin test suite.
+"""Shared test fixtures for the ClipScope test suite.
 
 Provides realistic sample data that mimics actual Douyin API responses,
 used across all test modules to ensure consistency.

@@ -12,14 +12,11 @@ from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel
 
 from app.api.models import ResponseModel
+from scripts.utils.paths import TRACKING_DIR
 
 router = APIRouter()
 
-TRACKING_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-    "data",
-    "tracking",
-)
+TRACKING_DIR = str(TRACKING_DIR)
 
 _dedup_cache: dict[str, set] = {}  # {date_str: set(aweme_ids)}
 _DEDUP_MAX_DAYS = 7

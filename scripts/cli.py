@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Unified CLI entry point for the social-archive-douyin toolkit.
+"""Unified CLI entry point for the ClipScope toolkit.
 
 Usage:
     uv run douyin sync [--dry-run]
@@ -12,6 +12,7 @@ Usage:
     uv run douyin analyze recommend-portrait
     uv run douyin upstream check
     uv run douyin upstream update
+    uv run douyin upstream bootstrap
     uv run douyin upstream apply <file>
     uv run douyin cookies apply
 """
@@ -91,6 +92,11 @@ def cmd_upstream_check(_: list[str]) -> None:
 def cmd_upstream_update(_: list[str]) -> None:
     """Update local lib/ from upstream (auto mode)."""
     _run_script("utils/check_upstream.py", ["--auto"])
+
+
+def cmd_upstream_bootstrap(args: list[str]) -> None:
+    """Clone or update the upstream crawler engine in lib/."""
+    _run_script("utils/bootstrap_lib.py", args)
 
 
 def cmd_logs(args: list[str]) -> None:
@@ -177,7 +183,7 @@ def cmd_config(_: list[str]) -> None:
     """Show config file locations and management guide."""
     print("""Config Architecture
 ===================
-  config.yaml                        Our app settings (API, crawler defaults)
+  config.yaml                        ClipScope app settings (API, crawler defaults)
   cookies/douyin.txt                 Douyin cookies (Netscape format)
   cookies/tiktok.txt                 TikTok cookies
   lib/crawlers/douyin/web/config.yaml   Douyin crawler config (auto-updated)
@@ -198,7 +204,7 @@ Cookie Management
 
 def print_help() -> None:
     """Print the main help message."""
-    print("""social-archive-douyin CLI
+    print("""ClipScope CLI
 Usage: uv run douyin <command> [options]
 
 Commands:
@@ -214,6 +220,7 @@ Commands:
   analyze recommend-portrait          Recommendation profile inference
 
   upstream check                      Check upstream updates
+  upstream bootstrap                  Clone upstream crawler engine into lib/
   upstream update                     Apply all upstream changes
   upstream apply <file>               Apply single upstream file
 
@@ -256,6 +263,7 @@ def main() -> None:
         if not cmd_args or cmd_args[0] in ("-h", "--help"):
             print("""upstream subcommands:
   check            Check upstream updates
+  bootstrap        Clone upstream crawler engine into lib/
   update           Apply all upstream changes
   apply <file>     Apply single upstream file
 """)
@@ -305,6 +313,7 @@ def dispatch_upstream(cmd: str, args: list[str]) -> None:
     """Dispatch upstream subcommands."""
     dispatch = {
         "check": cmd_upstream_check,
+        "bootstrap": cmd_upstream_bootstrap,
         "update": cmd_upstream_update,
         "apply": cmd_upstream_apply,
     }

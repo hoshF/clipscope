@@ -1,4 +1,4 @@
-"""Douyin/TikTok/Bilibili Crawler API Service
+"""ClipScope API Service
 
 FastAPI application built on the Douyin_TikTok_Download_API crawler library.
 Supports Douyin, TikTok, and Bilibili video/album parsing and watermark-free downloads.
@@ -10,9 +10,10 @@ import sys
 import uvicorn
 import yaml
 
-LIB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lib")
-if LIB_PATH not in sys.path:
-    sys.path.insert(0, LIB_PATH)
+from scripts.utils.paths import CONFIG_PATH, LIB_DIR, TEMP_DIR
+
+if str(LIB_DIR) not in sys.path:
+    sys.path.insert(0, str(LIB_DIR))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,10 +21,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.api.router import api_router
 
-config_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "config.yaml"
-)
-with open(config_path, encoding="utf-8") as f:
+with open(CONFIG_PATH, encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 app = FastAPI(
@@ -44,9 +42,7 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api")
 
-download_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "temp"
-)
+download_path = str(TEMP_DIR)
 os.makedirs(download_path, exist_ok=True)
 app.mount("/downloads", StaticFiles(directory=download_path), name="downloads")
 
@@ -63,7 +59,7 @@ async def root() -> dict:
         dict: Service name, version, and docs link.
     """
     return {
-        "service": "Douyin/TikTok/Bilibili Crawler API",
+        "service": "ClipScope API",
         "version": config["app"]["version"],
         "docs": f"{config['server']['docs_url']}",
         "github": "https://github.com/Evil0ctal/Douyin_TikTok_Download_API",

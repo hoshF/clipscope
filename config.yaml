@@ -1,9 +1,9 @@
 # =============================================================================
-# Douyin/TikTok/Bilibili Crawler API - Configuration
+# ClipScope API - Configuration
 # =============================================================================
 #
 # Config Architecture:
-#   config.yaml (this file)         →  Our app settings (API server, crawler defaults)
+#   config.yaml (this file)         →  ClipScope app settings (API server, crawler defaults)
 #   cookies/douyin.txt              →  Douyin cookies (Netscape format, export from browser)
 #   cookies/tiktok.txt              →  TikTok cookies
 #   lib/crawlers/douyin/web/config.yaml  →  Upstream Douyin crawler config (Cookie auto-updated
@@ -17,9 +17,9 @@
 
 # Application settings
 app:
-  title: "Douyin/TikTok/Bilibili Crawler API"
+  title: "ClipScope API"
   description: |
-    High-performance async data crawling service built on the
+    Short-video archive and analysis service built on the
     Douyin_TikTok_Download_API crawler library.
     Supports video/album parsing and watermark-free downloads for
     Douyin, TikTok, and Bilibili.

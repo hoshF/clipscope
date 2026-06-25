@@ -2,12 +2,16 @@
 # 定时同步脚本 — 由 launchd 调用
 # 每 6 小时自动检查并下载新增视频
 
-cd /Users/hoshf/Project/social-archive-douyin || exit 1
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-# 日志追加到单独文件，方便排查
+cd "$PROJECT_ROOT" || exit 1
+
 LOG="data/tracking/auto_sync.log"
-echo "===== $(date) =====" >> "$LOG"
+mkdir -p "$(dirname "$LOG")"
 
-.venv/bin/python scripts/download/sync_downloads.py >> "$LOG" 2>&1
-
-echo "" >> "$LOG"
+{
+    echo "===== $(date '+%Y-%m-%d %H:%M:%S') 已更新 ====="
+    .venv/bin/python scripts/download/sync_downloads.py ${CLIPSCOPE_SYNC_ARGS:-} 2>&1
+    echo ""
+} >> "$LOG"

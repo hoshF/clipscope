@@ -20,21 +20,24 @@ import os
 import re
 import sys
 import time
+from pathlib import Path
 
-LIB_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "lib"
-)
-if LIB_PATH not in sys.path:
-    sys.path.insert(0, LIB_PATH)
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from scripts.utils.paths import DOWNLOADS_DIR, TRACKING_DIR, ensure_project_paths
+
+ensure_project_paths()
 
 import aiofiles
 import httpx
 from crawlers.douyin.web.web_crawler import DouyinWebCrawler
 from crawlers.hybrid.hybrid_crawler import HybridCrawler
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DOWNLOADS_DIR = os.path.join(ROOT, "data", "downloads")
-LOG_FILE = os.path.join(ROOT, "data", "tracking", "sync_log.jsonl")
+ROOT = str(PROJECT_ROOT)
+DOWNLOADS_DIR = str(DOWNLOADS_DIR)
+LOG_FILE = str(TRACKING_DIR / "sync_log.jsonl")
 
 
 def append_log(entry: dict) -> None:
@@ -114,22 +117,16 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
         return result
 
     display_name = nickname or sec_user_id[:20]
-    print(f"\n{'=' * 50}")
-    print(f"👤 {display_name}")
-    print(f"   URL: {user_url}")
-    print(f"   Dir: {user_dir}")
 
     # Get already downloaded IDs
     existing = get_existing_ids(user_dir)
     existing_ids = set(existing.keys())
-    print(f"   Local: {len(existing_ids)} posts")
 
     # Initialize crawler
     douyin_crawler = DouyinWebCrawler()
     hybrid_crawler = HybridCrawler()
 
-    # Get remote video list
-    print("   📋 Fetching remote video list...")
+    # Get remote video list (silent)
     all_videos = []
     max_cursor = 0
     has_more = True
@@ -150,16 +147,45 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
             if not aweme_list:
                 break
         except Exception as e:
-            print(f"   ❌ Failed to fetch page {page}: {e}")
+            print(f"   ❌ {display_name} 获取失败: {e}")
             break
 
     remote_ids = {v.get("aweme_id") for v in all_videos if v.get("aweme_id")}
-    print(f"   Remote: {len(remote_ids)} posts")
 
     # Detect posts deleted/hidden by author
     deleted_ids = existing_ids - remote_ids
+
+    # Find new posts by comparison
+    new_videos = [v for v in all_videos if v.get("aweme_id") not in existing_ids]
+
+    # ── 无任何变化：只输出一行简洁信息 ──
+    if not new_videos and not deleted_ids:
+        print(f"👤 {display_name}  ✅ 已是最新")
+        log_entry = {
+            "type": "user_sync",
+            "user": display_name,
+            "sec_user_id": sec_user_id,
+            "dry_run": dry_run,
+            "local_count": len(existing_ids),
+            "remote_count": len(remote_ids),
+            "new_videos": 0,
+            "new_images": 0,
+            "deleted": 0,
+            "failed": 0,
+        }
+        append_log(log_entry)
+        return result
+
+    # ── 有变化：打印详细信息 ──
+    print(f"\n{'=' * 50}")
+    print(f"👤 {display_name}")
+    print(f"   URL: {user_url}")
+    print(f"   Dir: {user_dir}")
+    print(f"   Local: {len(existing_ids)} → Remote: {len(remote_ids)}")
+
     if deleted_ids:
-        print(f"\n   🗑️  {len(deleted_ids)} posts deleted/hidden by author:")
+        result["deleted"] = len(deleted_ids)
+        print(f"\n   🗑️  删除/隐藏 {len(deleted_ids)} 个作品:")
         for did in sorted(deleted_ids, reverse=True):
             info = existing.get(did, ("未知", False, "???"))
             local_name, is_img, seq = info
@@ -170,13 +196,10 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
             )
             icon = "🖼️" if is_img else "🎬"
             print(f"      {icon} {seq}_{did}  {desc_preview}")
-        result["deleted"] = len(deleted_ids)
 
-    # Find new posts by comparison
-    new_videos = [v for v in all_videos if v.get("aweme_id") not in existing_ids]
     if not new_videos:
-        print("\n   ✅ 已是最新，无需更新")
-        # 即使无更新也写日志
+        # 只有删除没有新增
+        print("\n   ✅ 无新作品")
         log_entry = {
             "type": "user_sync",
             "user": display_name,
@@ -388,11 +411,13 @@ async def main():
             print(f"❌ 未找到匹配 '{target}' 的用户")
             return
 
-    print(f"{'=' * 50}")
-    print(f"🔄 同步检查 ({'预览模式' if dry_run else '正式下载'})")
-    if dry_run:
+    if not dry_run:
+        print(f"🔄 同步检查 ({'预览模式' if dry_run else '正式下载'})")
+    else:
+        print(f"{'=' * 50}")
+        print(f"🔄 同步检查 ({'预览模式' if dry_run else '正式下载'})")
         print("   使用 --dry-run 仅查看新增，不加 --dry-run 则实际下载")
-    print(f"{'=' * 50}")
+        print(f"{'=' * 50}")
 
     total_new_videos = 0
     total_new_images = 0
@@ -406,19 +431,19 @@ async def main():
         total_failed += result["failed"]
         total_deleted += result["deleted"]
 
-    print(f"\n{'=' * 50}")
-    print("📊 同步完成")
-    if total_new_videos:
-        print(f"   🆕 新增视频: {total_new_videos}")
-    if total_new_images:
-        print(f"   🆕 新增图集: {total_new_images}")
-    if total_failed:
-        print(f"   ❌ 失败: {total_failed}")
-    if total_deleted:
-        print(f"   🗑️  作者已删除: {total_deleted}")
-    if not total_new_videos and not total_new_images and not total_deleted:
-        print("   ✅ 全部已是最新，无变化")
-    print(f"{'=' * 50}")
+    # 只有有变化时才打印汇总
+    if total_new_videos or total_new_images or total_deleted or total_failed:
+        print(f"\n{'=' * 50}")
+        print("📊 同步汇总")
+        if total_new_videos:
+            print(f"   🆕 新增视频: {total_new_videos}")
+        if total_new_images:
+            print(f"   🆕 新增图集: {total_new_images}")
+        if total_deleted:
+            print(f"   🗑️  作者已删除: {total_deleted}")
+        if total_failed:
+            print(f"   ❌ 失败: {total_failed}")
+        print(f"{'=' * 50}")
 
     # 写汇总日志
     append_log(

@@ -14,15 +14,21 @@ import re
 import sys
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+PROJECT_ROOT_FOR_IMPORT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT_FOR_IMPORT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT_FOR_IMPORT))
+
+from scripts.utils.paths import COOKIES_DIR, LIB_DIR, PROJECT_ROOT
 
 CONFIG_MAP = {
-    "douyin": os.path.join(ROOT, "lib", "crawlers", "douyin", "web", "config.yaml"),
-    "tiktok": os.path.join(ROOT, "lib", "crawlers", "tiktok", "web", "config.yaml"),
+    "douyin": str(LIB_DIR / "crawlers" / "douyin" / "web" / "config.yaml"),
+    "tiktok": str(LIB_DIR / "crawlers" / "tiktok" / "web" / "config.yaml"),
 }
 
-COOKIE_DIR = os.path.join(ROOT, "cookies")
+ROOT = str(PROJECT_ROOT)
+COOKIE_DIR = str(COOKIES_DIR)
 
 # Critical cookies (for expiry checking)
 CRITICAL_COOKIES = {

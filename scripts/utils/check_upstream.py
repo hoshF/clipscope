@@ -17,11 +17,17 @@ import os
 import sys
 from pathlib import Path
 
+PROJECT_ROOT_FOR_IMPORT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT_FOR_IMPORT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT_FOR_IMPORT))
+
+from scripts.utils.paths import LIB_DIR, PROJECT_ROOT
+
 UPSTREAM_REPO = "Evil0ctal/Douyin_TikTok_Download_API"
 UPSTREAM_BRANCH = "main"
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-LIB_DIR = os.path.join(ROOT, "lib")
+ROOT = str(PROJECT_ROOT)
+LIB_DIR = str(LIB_DIR)
 
 # Insignificant file/directory patterns (filter out, don't show diffs)
 IGNORE_DIRS = {

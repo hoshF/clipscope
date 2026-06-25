@@ -13,15 +13,12 @@ from fastapi.responses import FileResponse, RedirectResponse
 from starlette.background import BackgroundTask
 
 from app.api.models import ResponseModel
+from scripts.utils.paths import CONFIG_PATH
 
 router = APIRouter()
 crawler = HybridCrawler()
 
-config_path = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
-    "config.yaml",
-)
-with open(config_path, encoding="utf-8") as f:
+with open(CONFIG_PATH, encoding="utf-8") as f:
     config = yaml.safe_load(f)
 
 

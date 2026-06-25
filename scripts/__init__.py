@@ -1,1 +1,1 @@
-"""social-archive-douyin CLI tools package."""
+"""ClipScope CLI tools package."""
