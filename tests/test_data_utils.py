@@ -1,4 +1,4 @@
-"""Tests for scripts/utils/data_utils.py.
+"""Tests for clipscope/utils/data_utils.py.
 
 Covers the four public functions:
   - analyze_ip_distribution()
@@ -15,7 +15,7 @@ import tempfile
 
 import pytest
 
-from scripts.utils import data_utils as du
+from clipscope.utils import data_utils as du
 
 # ═══════════════════════════════════════════════════════════════
 # analyze_ip_distribution
@@ -29,14 +29,14 @@ class TestAnalyzeIPDistribution:
         """Should correctly count IP locations and classify domestic/overseas."""
         result = du.analyze_ip_distribution(sample_comments)
 
-        assert result["total_with_ip"] == 8  # 8 unique IPs, empty→"未知"
-        assert "北京" in result["domestic"]
-        assert "上海" in result["domestic"]
-        assert "广东" in result["domestic"]
-        assert "浙江" in result["domestic"]
-        assert "美国" in result["overseas"]
-        assert "日本" in result["overseas"]
-        assert result["unknown_count"] == 1  # empty ip_label falls back to "未知"
+        assert result["total_with_ip"] == 8  # 8 unique IPs, empty -> "unknown"
+        assert "Beijing" in result["domestic"]
+        assert "Shanghai" in result["domestic"]
+        assert "Guangdong" in result["domestic"]
+        assert "Zhejiang" in result["domestic"]
+        assert "United States" in result["overseas"]
+        assert "Japan" in result["overseas"]
+        assert result["unknown_count"] == 1  # empty ip_label falls back to "unknown"
 
     def test_unknown_ip_handling(self, sample_comments_malformed):
         """Should handle missing/null IP labels gracefully."""
@@ -58,13 +58,13 @@ class TestAnalyzeIPDistribution:
         result = du.analyze_ip_distribution(sample_comments)
         assert len(result["top_regions"]) > 0
         # Beijing appears once, should be in top regions
-        assert "北京" in result["top_regions"]
+        assert "Beijing" in result["top_regions"]
 
     def test_inferred_home(self, sample_comments):
         """Should infer the most common IP location as home."""
         result = du.analyze_ip_distribution(sample_comments)
         # Guangdong appears twice (user 100003 comments twice), most frequent
-        assert result["inferred_home"] == "广东"
+        assert result["inferred_home"] == "Guangdong"
         assert result["inferred_confidence"] > 0
 
 
@@ -83,17 +83,17 @@ class TestAnalyzeCommenterFanTiers:
         assert result["total_commenters"] == 7
 
         # KOLs: follower_count >= 10000
-        assert result["kols"]["count"] == 3  # 科技博主(50k), 美食达人(25k), 东京小张(18k)
+        assert result["kols"]["count"] == 3  # TechBlogger(50k), FoodieStar(25k), TokyoZhang(18k)
         assert result["kols"]["percentage"] == pytest.approx(42.9, rel=0.1)
 
         # Core fans: follower_count >= 100
-        assert result["core_fans"]["count"] == 2  # 普通用户张三(500), 海外华人(300)
+        assert result["core_fans"]["count"] == 2  # CommonUser(500), OverseasDragon(300)
 
         # Normal: follower_count > 0
-        assert result["normal_fans"]["count"] == 1  # 路人甲(50)
+        assert result["normal_fans"]["count"] == 1  # RegularJoe(50)
 
         # New: follower_count == 0
-        assert result["new_users"]["count"] == 1  # 新用户乙(0)
+        assert result["new_users"]["count"] == 1  # NewUser(0)
 
     def test_kol_list_sorted_by_followers(self, sample_comments):
         """KOL list should be sorted by follower_count descending."""
@@ -131,9 +131,9 @@ class TestAnalyzeTopCommenters:
 
         assert len(result) == 7
 
-        # 普通用户张三 appears twice (comment_count = 2)
+        # CommonUser appears twice (comment_count = 2)
         top = result[0]
-        assert top["nickname"] == "普通用户张三"
+        assert top["nickname"] == "CommonUser"
         assert top["comment_count"] == 2
         assert top["video_count"] == 2  # comments on 2 different videos
 
@@ -145,8 +145,8 @@ class TestAnalyzeTopCommenters:
     def test_video_count_dedup(self, sample_comments):
         """Should deduplicate video IDs per commenter."""
         result = du.analyze_top_commenters(sample_comments, top_n=10)
-        # 普通用户张三 commented on 2 different videos
-        zhang = next(r for r in result if r["nickname"] == "普通用户张三")
+        # CommonUser commented on 2 different videos
+        zhang = next(r for r in result if r["nickname"] == "CommonUser")
         assert zhang["video_count"] == 2
 
     def test_empty_input(self, sample_comments_no_data):
@@ -179,7 +179,7 @@ class TestFindCommentDir:
         meta = {
             "target_user": {
                 "sec_uid": "MS4wLjABAAAAtest_target",
-                "nickname": "测试用户",
+                "nickname": "TestUser",
             },
         }
         with open(os.path.join(user_dir, "_meta.json"), "w", encoding="utf-8") as f:

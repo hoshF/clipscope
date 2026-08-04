@@ -1,8 +1,8 @@
 # ClipScope
 
-ClipScope is a local-first short-video archive and analysis toolkit for Douyin, TikTok, and Bilibili. It wraps the upstream [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) crawler engine with a stable CLI, FastAPI service, scheduled sync helpers, and analysis scripts.
+ClipScope is a local-first short-video archive toolkit for Douyin, TikTok, and Bilibili. It provides a stable CLI for batch downloading, feed collection, comment scraping, and cookie management.
 
-The command name remains `douyin` for compatibility:
+The crawler engine from [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) is vendored into the project for stability.
 
 ```bash
 uv run douyin <command>
@@ -13,12 +13,13 @@ uv run douyin <command>
 | Area | Command | Purpose |
 | --- | --- | --- |
 | Batch sync | `uv run douyin sync` | Check tracked users and download newly published videos or albums |
-| Feed tracking | `uv run douyin feed -- --loop` | Capture recommendation-feed snapshots over time |
+| Single grab | `uv run douyin grab <url> <dir>` | Download images/video from a single post to any directory |
+| User tracking | `uv run douyin track add/list/remove` | Manage which users to sync |
+| Feed tracking | `uv run douyin feed --loop` | Capture recommendation-feed snapshots over time |
 | Comment collection | `uv run douyin comments <url>` | Collect comments and replies for a Douyin user |
-| Analysis | `uv run douyin analyze ...` | Build fan portraits, social graphs, identity clues, and commenter value reports |
-| API service | `uv run uvicorn app.main:app` | Expose parsing, download, and tracking endpoints |
 | Cookies | `uv run douyin cookies apply` | Apply exported browser cookies to crawler configs |
-| Upstream engine | `uv run douyin upstream ...` | Bootstrap, check, and update the ignored `lib/` crawler engine |
+| Config | `uv run douyin config` | Show config structure guide |
+| Logs | `uv run douyin logs` | Log management (status / clean / prune) |
 
 ## Install
 
@@ -26,11 +27,10 @@ uv run douyin <command>
 brew install uv
 git clone <repo-url> clipscope
 cd clipscope
-uv sync --all-extras --all-groups
-uv run douyin upstream bootstrap
+uv sync
 ```
 
-`lib/` is not committed. It is a local clone of the upstream crawler engine and can be recreated with `uv run douyin upstream bootstrap`.
+Cookie files go under `cookies/` (gitignored). Crawler runtime config overrides go under `crawler_configs/` (gitignored).
 
 ## Cookie Setup
 
@@ -51,63 +51,60 @@ Cookie files are sensitive and ignored by Git.
 uv run douyin --help
 uv run douyin config
 
-uv run douyin sync -- --dry-run
+# Sync downloads
+uv run douyin sync --dry-run
 uv run douyin sync
 
-uv run douyin feed -- --loop --interval=5
+# User tracking
+uv run douyin track add "https://www.douyin.com/user/<sec_user_id>"
+uv run douyin track list
+uv run douyin track remove <sec_user_id>
+
+# Feed collector
+uv run douyin feed --loop --interval 5
+
+# Comment collection
 uv run douyin comments "https://www.douyin.com/user/<sec_user_id>"
 
-uv run douyin analyze recommend-portrait
-uv run douyin analyze social-graph <sec_user_id>
-uv run douyin analyze fan-portrait <sec_user_id>
-uv run douyin analyze identity <sec_user_id>
-uv run douyin analyze commenter-value <sec_user_id>
+# Cookie management
+uv run douyin cookies apply
+uv run douyin cookies -- --check
+uv run douyin cookies -- --clear
 
-uv run douyin upstream check
-uv run douyin upstream bootstrap
-uv run douyin upstream bootstrap -- --update
-uv run douyin upstream update
+# Log management
+uv run douyin logs
+uv run douyin logs clean
+uv run douyin logs prune 30
 ```
-
-## API Service
-
-```bash
-uv run uvicorn app.main:app --host 0.0.0.0 --port 8000
-```
-
-Useful endpoints:
-
-| Path | Purpose |
-| --- | --- |
-| `/docs` | Swagger UI |
-| `/health` | Health check |
-| `/api/parser/video` | Parse one video or album URL |
-| `/api/parser/extract` | Extract links from shared text and parse them |
-| `/api/downloader/info` | Return downloadable video or album metadata |
-| `/api/tracking/feed` | Receive feed snapshots |
-| `/static/dashboard.html` | Local feed dashboard |
 
 ## Data Layout
 
 ```text
 clipscope/
-├── app/                 FastAPI service
-├── scripts/             CLI commands, collectors, analyzers, utilities
-├── tests/               pytest suite
-├── config.yaml          ClipScope app config
-├── cookies/             local cookie files, ignored
-├── data/                local archive and analysis data, ignored
-└── lib/                 upstream crawler engine, ignored
+├── src/clipscope/              CLI, crawler engine, collectors, utilities
+│   ├── cli.py
+│   ├── crawler/                vendored crawler engine
+│   ├── collector/              sync, track, feed, comments, organize
+│   └── utils/                  paths, logging, cookies, config
+├── scripts/
+│   ├── launchd/                macOS scheduled job templates
+│   └── utils/auto_sync.sh      scheduled sync script
+├── tests/                      pytest suite
+├── config.yaml                 app settings
+├── cookies/                    local cookie files (ignored)
+├── crawler_configs/            crawler runtime config overrides (ignored)
+└── data/                       local archive and analysis data (ignored)
 ```
 
 Ignored local assets:
 
 - `cookies/`: browser login cookies
+- `crawler_configs/`: crawler config overrides (Cookie, tokens)
 - `data/downloads/`: downloaded videos and albums
+- `data/downloads/.tracked.json`: user tracking manifest
 - `data/comments/`: collected comments
-- `data/tracking/`: feed snapshots and sync logs
+- `data/tracking/`: feed snapshots, sync logs, launchd output
 - `data/logs/`, `data/temp/`: runtime artifacts
-- `lib/`: upstream crawler engine checkout
 
 ## Scheduled Sync
 
@@ -130,5 +127,3 @@ CLIPSCOPE_SYNC_ARGS="--dry-run" scripts/utils/auto_sync.sh
 uv run pytest -q
 uv run ruff check .
 ```
-
-The project keeps crawler engine code in `lib/` outside version control. Use `uv run douyin upstream check` before applying upstream changes.

@@ -15,16 +15,9 @@ __pycache__/
 *.swo
 *.swp
 *~
-# ── Cookie（敏感凭证） ──
-# ── IDE ──
-# ── macOS ──
-# ── Python ──
-# ── 第三方子模块（lib/ 是 git clone 的外部项目） ──
-# ── 环境配置 ──
-# ── 爬取数据（不提交到仓库） ──
-# ── 日志 ──
 build/
 cookies/
+crawler_configs/
 data/comments/
 data/downloads/
 data/logs/
@@ -32,5 +25,4 @@ data/temp/
 data/tracking/
 data/tracking/*.err
 dist/
-lib/
 venv/

@@ -1,1 +1,0 @@
-"""ClipScope CLI tools package."""

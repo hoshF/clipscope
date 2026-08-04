@@ -1,52 +1,22 @@
 # =============================================================================
-# ClipScope API - Configuration
+# ClipScope - Configuration
 # =============================================================================
 #
 # Config Architecture:
-#   config.yaml (this file)         →  ClipScope app settings (API server, crawler defaults)
-#   cookies/douyin.txt              →  Douyin cookies (Netscape format, export from browser)
-#   cookies/tiktok.txt              →  TikTok cookies
-#   lib/crawlers/douyin/web/config.yaml  →  Upstream Douyin crawler config (Cookie auto-updated
-#                                            by scripts/utils/apply_cookies.py)
-#   lib/crawlers/bilibili/web/config.yaml →  Upstream Bilibili crawler config
+#   config.yaml                                  ClipScope app settings
+#   cookies/douyin.txt                           Douyin cookies (Netscape format)
+#   cookies/tiktok.txt                           TikTok cookies
+#   src/clipscope/crawler/douyin/web/config.yaml  Douyin crawler config (auto-updated)
+#   src/clipscope/crawler/bilibili/web/config.yaml Bilibili crawler config
 #
 # Cookie Management:
-#   1. Export cookies from browser (Netscape format) → cookies/douyin.txt
+#   1. Export cookies from browser (Netscape format) -> cookies/douyin.txt
 #   2. Run: uv run douyin cookies apply
-#   3. This auto-updates lib/crawlers/douyin/web/config.yaml
-
-# Application settings
-app:
-  title: "ClipScope API"
-  description: |
-    Short-video archive and analysis service built on the
-    Douyin_TikTok_Download_API crawler library.
-    Supports video/album parsing and watermark-free downloads for
-    Douyin, TikTok, and Bilibili.
-
-    ## Features
-    - 🚀 HybridCrawler-based mixed parsing engine, auto-detect platform
-    - 📦 Single/batch URL parsing
-    - 🎯 Watermark-free video download
-    - 🖼️ Album image download
-    - 🔄 Supports Douyin share text, TikTok share text formats
-  version: "1.0.0"
-
-# Server settings
-server:
-  host: "0.0.0.0"
-  port: 8000
-  docs_url: "/docs"
-  redoc_url: "/redoc"
-  download_path: "./data/temp"
+#   3. This auto-updates src/clipscope/crawler/douyin/web/config.yaml
 
 # Crawler settings
 crawler:
-  # Request timeout (seconds)
   timeout: 30
-  # Max retries
   max_retries: 3
-  # Max concurrent requests
   max_concurrent: 10
-  # User-Agent
   user_agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
