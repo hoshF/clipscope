@@ -99,7 +99,11 @@ def cmd_track_list() -> None:
         status = "active" if info.get("active", True) else "disabled"
         nickname = info.get("nickname", "?")
         last_sync = info.get("last_synced_at")
-        last_str = __import__("time").strftime("%Y-%m-%d", __import__("time").localtime(last_sync)) if last_sync else "never"
+        last_str = (
+            __import__("time").strftime("%Y-%m-%d", __import__("time").localtime(last_sync))
+            if last_sync
+            else "never"
+        )
         logger.info("  %s  %s  %s  (last sync: %s)", status, nickname, sec_id[:20], last_str)
 
 

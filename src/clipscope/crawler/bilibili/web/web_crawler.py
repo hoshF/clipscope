@@ -40,10 +40,18 @@ import yaml  # 配置文件
 # 基础爬虫客户端和哔哩哔哩API端点
 from clipscope.crawler.base_crawler import BaseCrawler
 from clipscope.crawler.bilibili.web.endpoints import BilibiliAPIEndpoints
+
 # 哔哩哔哩工具类
 from clipscope.crawler.bilibili.web.utils import EndpointGenerator, bv2av, ResponseAnalyzer
+
 # 数据请求模型
-from clipscope.crawler.bilibili.web.models import UserPostVideos, UserProfile, ComPopular, UserDynamic, PlayUrl
+from clipscope.crawler.bilibili.web.models import (
+    UserPostVideos,
+    UserProfile,
+    ComPopular,
+    UserDynamic,
+    PlayUrl,
+)
 
 from clipscope.utils.crawler_config import load_crawler_config
 
@@ -51,10 +59,9 @@ config = load_crawler_config("bilibili")
 
 
 class BilibiliWebCrawler:
-
     # 从配置文件读取哔哩哔哩请求头
     async def get_bilibili_headers(self):
-        bili_config = config['TokenManager']['bilibili']
+        bili_config = config["TokenManager"]["bilibili"]
         kwargs = {
             "headers": {
                 "accept-language": bili_config["headers"]["accept-language"],
@@ -63,7 +70,10 @@ class BilibiliWebCrawler:
                 "user-agent": bili_config["headers"]["user-agent"],
                 "cookie": bili_config["headers"]["cookie"],
             },
-            "proxies": {"http://": bili_config["proxies"]["http"], "https://": bili_config["proxies"]["https"]},
+            "proxies": {
+                "http://": bili_config["proxies"]["http"],
+                "https://": bili_config["proxies"]["https"],
+            },
         }
         return kwargs
 
@@ -398,7 +408,7 @@ class BilibiliWebCrawler:
 
         # 获取指定分区正在直播的主播
         pn = 1
-        area_id = '9'
+        area_id = "9"
         result = await self.fetch_live_streamers(area_id=area_id, pn=pn)
         print(result)
 
@@ -418,7 +428,7 @@ class BilibiliWebCrawler:
         # print(result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # 初始化
     BilibiliWebCrawler = BilibiliWebCrawler()
 

@@ -291,6 +291,5 @@ class URL_List(BaseModel):
     urls: List[str] = [
         "https://test.example.com/xxxxx/",
         "https://test.example.com/yyyyy/",
-        "https://test.example.com/zzzzz/"
+        "https://test.example.com/zzzzz/",
     ]
-

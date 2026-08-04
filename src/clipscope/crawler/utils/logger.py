@@ -108,9 +108,7 @@ class LogManager(metaclass=Singleton):
                 log_file, when="midnight", interval=1, backupCount=99, encoding="utf-8"
             )
             fh.setFormatter(
-                logging.Formatter(
-                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
-                )
+                logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
             )
             self.logger.addHandler(fh)
 
@@ -132,9 +130,7 @@ class LogManager(metaclass=Singleton):
             try:
                 log_file.unlink()
             except PermissionError:
-                self.logger.warning(
-                    f"无法删除日志文件 {log_file}, 它正被另一个进程使用"
-                )
+                self.logger.warning(f"无法删除日志文件 {log_file}, 它正被另一个进程使用")
 
     def shutdown(self):
         for handler in self.logger.handlers:

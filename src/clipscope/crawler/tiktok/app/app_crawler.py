@@ -47,9 +47,7 @@ from clipscope.crawler.utils.utils import model_to_query_string
 from tenacity import *
 
 # TikTok接口数据请求模型
-from clipscope.crawler.tiktok.app.models import (
-    BaseRequestModel, FeedVideoDetail
-)
+from clipscope.crawler.tiktok.app.models import BaseRequestModel, FeedVideoDetail
 
 # 标记已废弃的方法
 from clipscope.crawler.utils.deprecated import deprecated
@@ -60,7 +58,6 @@ config = load_crawler_config("tiktok", "app")
 
 
 class TikTokAPPCrawler:
-
     # 从配置文件中获取TikTok的请求头
     async def get_tiktok_headers(self):
         tiktok_config = config["TokenManager"]["tiktok"]
@@ -71,8 +68,10 @@ class TikTokAPPCrawler:
                 "Cookie": tiktok_config["headers"]["Cookie"],
                 "x-ladon": "Hello From Evil0ctal!",
             },
-            "proxies": {"http://": tiktok_config["proxies"]["http"],
-                        "https://": tiktok_config["proxies"]["https"]}
+            "proxies": {
+                "http://": tiktok_config["proxies"]["http"],
+                "https://": tiktok_config["proxies"]["https"],
+            },
         }
         return kwargs
 

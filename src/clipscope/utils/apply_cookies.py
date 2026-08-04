@@ -187,7 +187,9 @@ def print_cookie_summary(cookies: list[dict], platform: str):
         if name in cookie_map:
             c = cookie_map[name]
             remaining = c["expires"] - now
-            status = "valid" if remaining > 86400 * 7 else ("expiring" if remaining > 0 else "expired")
+            status = (
+                "valid" if remaining > 86400 * 7 else ("expiring" if remaining > 0 else "expired")
+            )
             exp_str = datetime.fromtimestamp(c["expires"], tz=UTC).strftime("%m/%d")
             logger.info("   %s %s: expires %s", status, name, exp_str)
         else:

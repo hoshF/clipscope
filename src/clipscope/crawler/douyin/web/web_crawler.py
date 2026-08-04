@@ -42,22 +42,33 @@ import yaml  # 配置文件
 # 基础爬虫客户端和抖音API端点
 from clipscope.crawler.base_crawler import BaseCrawler
 from clipscope.crawler.douyin.web.endpoints import DouyinAPIEndpoints
+
 # 抖音接口数据请求模型
 from clipscope.crawler.douyin.web.models import (
-    BaseRequestModel, LiveRoomRanking, PostComments,
-    PostCommentsReply, PostDetail,
-    UserProfile, UserCollection, UserLike, UserLive,
-    UserLive2, UserMix, UserPost
+    BaseRequestModel,
+    LiveRoomRanking,
+    PostComments,
+    PostCommentsReply,
+    PostDetail,
+    UserProfile,
+    UserCollection,
+    UserLike,
+    UserLive,
+    UserLive2,
+    UserMix,
+    UserPost,
 )
+
 # 抖音应用的工具类
-from clipscope.crawler.douyin.web.utils import (AwemeIdFetcher,  # Aweme ID获取
-                                       BogusManager,  # XBogus管理
-                                       SecUserIdFetcher,  # 安全用户ID获取
-                                       TokenManager,  # 令牌管理
-                                       VerifyFpManager,  # 验证管理
-                                       WebCastIdFetcher,  # 直播ID获取
-                                       extract_valid_urls  # URL提取
-                                       )
+from clipscope.crawler.douyin.web.utils import (
+    AwemeIdFetcher,  # Aweme ID获取
+    BogusManager,  # XBogus管理
+    SecUserIdFetcher,  # 安全用户ID获取
+    TokenManager,  # 令牌管理
+    VerifyFpManager,  # 验证管理
+    WebCastIdFetcher,  # 直播ID获取
+    extract_valid_urls,  # URL提取
+)
 
 from clipscope.utils.crawler_config import load_crawler_config
 
@@ -65,7 +76,6 @@ config = load_crawler_config("douyin")
 
 
 class DouyinWebCrawler:
-
     # 从配置文件中获取抖音的请求头
     async def get_douyin_headers(self):
         douyin_config = config["TokenManager"]["douyin"]
@@ -76,7 +86,10 @@ class DouyinWebCrawler:
                 "Referer": douyin_config["headers"]["Referer"],
                 "Cookie": douyin_config["headers"]["Cookie"],
             },
-            "proxies": {"http://": douyin_config["proxies"]["http"], "https://": douyin_config["proxies"]["https"]},
+            "proxies": {
+                "http://": douyin_config["proxies"]["http"],
+                "https://": douyin_config["proxies"]["https"],
+            },
         }
         return kwargs
 
@@ -99,9 +112,11 @@ class DouyinWebCrawler:
 
             # 生成一个作品详情的带有a_bogus加密参数的Endpoint
             params_dict = params.dict()
-            params_dict["msToken"] = ''
+            params_dict["msToken"] = ""
             a_bogus = BogusManager.ab_model_2_endpoint(params_dict, kwargs["headers"]["User-Agent"])
-            endpoint = f"{DouyinAPIEndpoints.POST_DETAIL}?{urlencode(params_dict)}&a_bogus={a_bogus}"
+            endpoint = (
+                f"{DouyinAPIEndpoints.POST_DETAIL}?{urlencode(params_dict)}&a_bogus={a_bogus}"
+            )
 
             response = await crawler.fetch_get_json(endpoint)
         return response
@@ -119,7 +134,7 @@ class DouyinWebCrawler:
 
             # 生成一个用户发布作品数据的带有a_bogus加密参数的Endpoint
             params_dict = params.dict()
-            params_dict["msToken"] = ''
+            params_dict["msToken"] = ""
             a_bogus = BogusManager.ab_model_2_endpoint(params_dict, kwargs["headers"]["User-Agent"])
             endpoint = f"{DouyinAPIEndpoints.USER_POST}?{urlencode(params_dict)}&a_bogus={a_bogus}"
 
@@ -138,9 +153,11 @@ class DouyinWebCrawler:
             # response = await crawler.fetch_get_json(endpoint)
 
             params_dict = params.dict()
-            params_dict["msToken"] = ''
+            params_dict["msToken"] = ""
             a_bogus = BogusManager.ab_model_2_endpoint(params_dict, kwargs["headers"]["User-Agent"])
-            endpoint = f"{DouyinAPIEndpoints.USER_FAVORITE_A}?{urlencode(params_dict)}&a_bogus={a_bogus}"
+            endpoint = (
+                f"{DouyinAPIEndpoints.USER_FAVORITE_A}?{urlencode(params_dict)}&a_bogus={a_bogus}"
+            )
 
             response = await crawler.fetch_get_json(endpoint)
         return response
@@ -231,13 +248,19 @@ class DouyinWebCrawler:
         return response
 
     # 获取指定视频的评论回复数据
-    async def fetch_video_comments_reply(self, item_id: str, comment_id: str, cursor: int = 0, count: int = 20):
+    async def fetch_video_comments_reply(
+        self, item_id: str, comment_id: str, cursor: int = 0, count: int = 20
+    ):
         kwargs = await self.get_douyin_headers()
         base_crawler = BaseCrawler(proxies=kwargs["proxies"], crawler_headers=kwargs["headers"])
         async with base_crawler as crawler:
-            params = PostCommentsReply(item_id=item_id, comment_id=comment_id, cursor=cursor, count=count)
+            params = PostCommentsReply(
+                item_id=item_id, comment_id=comment_id, cursor=cursor, count=count
+            )
             endpoint = BogusManager.xb_model_2_endpoint(
-                DouyinAPIEndpoints.POST_COMMENT_REPLY, params.dict(), kwargs["headers"]["User-Agent"]
+                DouyinAPIEndpoints.POST_COMMENT_REPLY,
+                params.dict(),
+                kwargs["headers"]["User-Agent"],
             )
             response = await crawler.fetch_get_json(endpoint)
         return response
@@ -257,41 +280,37 @@ class DouyinWebCrawler:
     "-------------------------------------------------------utils接口列表-------------------------------------------------------"
 
     # 生成真实msToken
-    async def gen_real_msToken(self, ):
-        result = {
-            "msToken": TokenManager().gen_real_msToken()
-        }
+    async def gen_real_msToken(
+        self,
+    ):
+        result = {"msToken": TokenManager().gen_real_msToken()}
         return result
 
     # 生成ttwid
-    async def gen_ttwid(self, ):
-        result = {
-            "ttwid": TokenManager().gen_ttwid()
-        }
+    async def gen_ttwid(
+        self,
+    ):
+        result = {"ttwid": TokenManager().gen_ttwid()}
         return result
 
     # 生成verify_fp
-    async def gen_verify_fp(self, ):
-        result = {
-            "verify_fp": VerifyFpManager.gen_verify_fp()
-        }
+    async def gen_verify_fp(
+        self,
+    ):
+        result = {"verify_fp": VerifyFpManager.gen_verify_fp()}
         return result
 
     # 生成s_v_web_id
-    async def gen_s_v_web_id(self, ):
-        result = {
-            "s_v_web_id": VerifyFpManager.gen_s_v_web_id()
-        }
+    async def gen_s_v_web_id(
+        self,
+    ):
+        result = {"s_v_web_id": VerifyFpManager.gen_s_v_web_id()}
         return result
 
     # 使用接口地址生成Xb参数
     async def get_x_bogus(self, url: str, user_agent: str):
         url = BogusManager.xb_str_2_endpoint(url, user_agent)
-        result = {
-            "url": url,
-            "x_bogus": url.split("&X-Bogus=")[1],
-            "user_agent": user_agent
-        }
+        result = {"url": url, "x_bogus": url.split("&X-Bogus=")[1], "user_agent": user_agent}
         return result
 
     # 使用接口地址生成Ab参数
@@ -305,7 +324,7 @@ class DouyinWebCrawler:
         result = {
             "url": f"{endpoint}?{urlencode(params)}&a_bogus={a_bogus}",
             "a_bogus": a_bogus,
-            "user_agent": user_agent
+            "user_agent": user_agent,
         }
         return result
 

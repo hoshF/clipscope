@@ -36,7 +36,8 @@ def _remove_quarantine(target_dir: str) -> None:
     try:
         subprocess.run(
             ["xattr", "-d", "com.apple.quarantine", f"{target_dir}/*"],
-            capture_output=True, timeout=10,
+            capture_output=True,
+            timeout=10,
         )
     except Exception:
         pass

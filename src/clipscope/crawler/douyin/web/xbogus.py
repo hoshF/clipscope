@@ -70,8 +70,7 @@ class XBogus:
             idx = 0
             while idx < len(md5_str):
                 array.append(
-                    (self.Array[ord(md5_str[idx])] << 4)
-                    | self.Array[ord(md5_str[idx + 1])]
+                    (self.Array[ord(md5_str[idx])] << 4) | self.Array[ord(md5_str[idx + 1])]
                 )
                 idx += 2
             return array
@@ -81,9 +80,7 @@ class XBogus:
         使用多轮md5哈希算法对URL路径进行加密。
         Encrypt the URL path using multiple rounds of md5 hashing.
         """
-        hashed_url_path = self.md5_str_to_array(
-            self.md5(self.md5_str_to_array(self.md5(url_path)))
-        )
+        hashed_url_path = self.md5_str_to_array(self.md5(self.md5_str_to_array(self.md5(url_path))))
         return hashed_url_path
 
     def md5(self, input_data):
@@ -102,9 +99,7 @@ class XBogus:
         md5_hash.update(bytes(array))
         return md5_hash.hexdigest()
 
-    def encoding_conversion(
-        self, a, b, c, e, d, t, f, r, n, o, i, _, x, u, s, l, v, h, p
-    ):
+    def encoding_conversion(self, a, b, c, e, d, t, f, r, n, o, i, _, x, u, s, l, v, h, p):
         """
         第一次编码转换。
         Perform encoding conversion.

@@ -496,8 +496,10 @@ Examples:
     max_comments_display = "all" if args.max_comments >= 999999 else args.max_comments
     logger.info(
         "Config: max_posts=%s, max_comments/post=%s, replies=%s, interval=%ss",
-        args.max_videos or "all", max_comments_display,
-        "no" if args.no_replies else "yes", args.interval,
+        args.max_videos or "all",
+        max_comments_display,
+        "no" if args.no_replies else "yes",
+        args.interval,
     )
 
     crawler = DouyinWebCrawler()
@@ -527,7 +529,8 @@ Examples:
         mode = "sync" if args.sync else "resume"
         logger.info(
             "%s mode: %d comments, %d posts already collected",
-            mode, len(existing_data.get("comments", [])),
+            mode,
+            len(existing_data.get("comments", [])),
             len(existing_data.get("videos", {})),
         )
 
@@ -550,7 +553,9 @@ Examples:
                 pass  # --all: re-collect
             elif args.sync:
                 # --sync: quick check for new comments
-                logger.info(f"  [{idx}/{total_videos}] Checking for new comments: {aweme_id} - {desc}")
+                logger.info(
+                    f"  [{idx}/{total_videos}] Checking for new comments: {aweme_id} - {desc}"
+                )
                 has_new = await check_has_new_comments(crawler, aweme_id, known_cids)
                 if not has_new:
                     logger.info("    No new comments")
@@ -563,7 +568,10 @@ Examples:
                 # Normal mode: skip
                 logger.info(
                     "  [%d/%d] Skipping already collected: %s - %s",
-                    idx, total_videos, aweme_id, desc,
+                    idx,
+                    total_videos,
+                    aweme_id,
+                    desc,
                 )
                 skipped += 1
                 continue

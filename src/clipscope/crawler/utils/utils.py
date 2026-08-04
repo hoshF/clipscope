@@ -103,9 +103,7 @@ def get_timestamp(unit: str = "milli"):
         raise ValueError("Unsupported time unit")
 
 
-def timestamp_2_str(
-        timestamp: Union[str, int, float], format: str = "%Y-%m-%d %H-%M-%S"
-) -> str:
+def timestamp_2_str(timestamp: Union[str, int, float], format: str = "%Y-%m-%d %H-%M-%S") -> str:
     """
     将 UNIX 时间戳转换为格式化字符串 (Convert a UNIX timestamp to a formatted string)
 
@@ -163,9 +161,7 @@ def split_set_cookie(cookie_str: str) -> str:
     # 拆分Set-Cookie字符串,避免错误地在expires字段的值中分割字符串 (Split the Set-Cookie string, avoiding incorrect splitting on the value of the 'expires' field)
     # 拆分每个Cookie字符串，只获取第一个分段（即key=value部分） / Split each Cookie string, only getting the first segment (i.e., key=value part)
     # 拼接所有的Cookie (Concatenate all cookies)
-    return ";".join(
-        cookie.split(";")[0] for cookie in re.split(", (?=[a-zA-Z])", cookie_str)
-    )
+    return ";".join(cookie.split(";")[0] for cookie in re.split(", (?=[a-zA-Z])", cookie_str))
 
 
 def split_dict_cookie(cookie_dict: dict) -> str:
@@ -318,9 +314,7 @@ def get_cookie_from_browser(browser_choice: str, domain: str = "") -> dict:
     return cookie_value
 
 
-def check_invalid_naming(
-        naming: str, allowed_patterns: list, allowed_separators: list
-) -> list:
+def check_invalid_naming(naming: str, allowed_patterns: list, allowed_separators: list) -> list:
     """
     检查命名是否符合命名模板 (Check if the naming conforms to the naming template)
 
@@ -361,9 +355,9 @@ def check_invalid_naming(
 
 
 def merge_config(
-        main_conf: dict = ...,
-        custom_conf: dict = ...,
-        **kwargs,
+    main_conf: dict = ...,
+    custom_conf: dict = ...,
+    **kwargs,
 ):
     """
     合并配置参数，使 CLI 参数优先级高于自定义配置，自定义配置优先级高于主配置，最终生成完整配置参数字典。

@@ -158,7 +158,9 @@ def _extract_image_urls(item: dict) -> list[str]:
     return [img["url_list"][0] for img in images if img.get("url_list")]
 
 
-async def _download_file(client: httpx.AsyncClient, url: str, filepath: str, max_retries: int = 3) -> bool:
+async def _download_file(
+    client: httpx.AsyncClient, url: str, filepath: str, max_retries: int = 3
+) -> bool:
     """Download a single file with streaming and exponential backoff retry."""
     for attempt in range(max_retries):
         try:
@@ -173,7 +175,9 @@ async def _download_file(client: httpx.AsyncClient, url: str, filepath: str, max
                         wait = 2 ** (attempt + 2)
                         logger.warning(
                             "Rate limited (429), retrying in %ds (attempt %d/%d)",
-                            wait, attempt + 1, max_retries,
+                            wait,
+                            attempt + 1,
+                            max_retries,
                         )
                         await asyncio.sleep(wait)
                     else:
@@ -181,13 +185,16 @@ async def _download_file(client: httpx.AsyncClient, url: str, filepath: str, max
                 else:
                     logger.warning(
                         "HTTP %d on attempt %d/%d for %s",
-                        resp.status_code, attempt + 1, max_retries, url[:60],
+                        resp.status_code,
+                        attempt + 1,
+                        max_retries,
+                        url[:60],
                     )
                     if attempt < max_retries - 1:
-                        await asyncio.sleep(2 ** attempt)
+                        await asyncio.sleep(2**attempt)
         except Exception:
             if attempt < max_retries - 1:
-                wait = 2 ** attempt
+                wait = 2**attempt
                 logger.debug("Download attempt %d failed, retrying in %ds", attempt + 1, wait)
                 await asyncio.sleep(wait)
             else:
@@ -242,12 +249,20 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
 
     if not new_videos and not deleted_ids:
         logger.info("%s  up to date", display_name)
-        append_log({
-            "type": "user_sync", "user": display_name, "sec_user_id": sec_user_id,
-            "dry_run": dry_run, "local_count": len(existing_ids),
-            "remote_count": len(remote_ids), "new_videos": 0,
-            "new_images": 0, "deleted": 0, "failed": 0,
-        })
+        append_log(
+            {
+                "type": "user_sync",
+                "user": display_name,
+                "sec_user_id": sec_user_id,
+                "dry_run": dry_run,
+                "local_count": len(existing_ids),
+                "remote_count": len(remote_ids),
+                "new_videos": 0,
+                "new_images": 0,
+                "deleted": 0,
+                "failed": 0,
+            }
+        )
         return result
 
     logger.info("=" * 50)
@@ -272,12 +287,20 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
 
     if not new_videos:
         logger.info("No new posts")
-        append_log({
-            "type": "user_sync", "user": display_name, "sec_user_id": sec_user_id,
-            "dry_run": dry_run, "local_count": len(existing_ids),
-            "remote_count": len(remote_ids), "new_videos": 0,
-            "new_images": 0, "deleted": result["deleted"], "failed": 0,
-        })
+        append_log(
+            {
+                "type": "user_sync",
+                "user": display_name,
+                "sec_user_id": sec_user_id,
+                "dry_run": dry_run,
+                "local_count": len(existing_ids),
+                "remote_count": len(remote_ids),
+                "new_videos": 0,
+                "new_images": 0,
+                "deleted": result["deleted"],
+                "failed": 0,
+            }
+        )
         return result
 
     logger.info("%d new posts", len(new_videos))
@@ -303,8 +326,11 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
     # Load prior sync state for resumption
     state = _load_sync_state(user_dir)
     # Skip items already downloaded in a previous interrupted run
-    pending = [(i, v) for i, v in enumerate(new_videos, start_num)
-               if v.get("aweme_id") not in state["downloaded_ids"]]
+    pending = [
+        (i, v)
+        for i, v in enumerate(new_videos, start_num)
+        if v.get("aweme_id") not in state["downloaded_ids"]
+    ]
     state["next_seq"] = max(state["next_seq"], start_num)
 
     if not pending:
@@ -353,7 +379,8 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
                         download_url = _extract_download_url(item)
                         if not download_url:
                             download_url = (
-                                item.get("video", {}).get("play_addr", {})
+                                item.get("video", {})
+                                .get("play_addr", {})
                                 .get("url_list", [None])[0]
                             )
                         if not download_url:
@@ -395,16 +422,26 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
     new_downloaded = [
-        (seq, item.get("aweme_id"), "image" if item.get("aweme_type") in (2, 68) else "video", item.get("desc", "")[:40])
+        (
+            seq,
+            item.get("aweme_id"),
+            "image" if item.get("aweme_type") in (2, 68) else "video",
+            item.get("desc", "")[:40],
+        )
         for seq, item in pending
         if item.get("aweme_id") in state.get("downloaded_ids", set())
     ]
 
     log_entry = {
-        "type": "user_sync", "user": display_name, "sec_user_id": sec_user_id,
-        "dry_run": dry_run, "local_count": len(existing_ids),
-        "remote_count": len(remote_ids), "new_videos": result["new_videos"],
-        "new_images": result["new_images"], "deleted": result["deleted"],
+        "type": "user_sync",
+        "user": display_name,
+        "sec_user_id": sec_user_id,
+        "dry_run": dry_run,
+        "local_count": len(existing_ids),
+        "remote_count": len(remote_ids),
+        "new_videos": result["new_videos"],
+        "new_images": result["new_images"],
+        "deleted": result["deleted"],
         "failed": result["failed"],
     }
     if deleted_ids:
@@ -419,7 +456,9 @@ async def sync_user(meta_path: str, dry_run: bool = False) -> dict:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="douyin sync", description="Sync downloads for tracked users")
+    parser = argparse.ArgumentParser(
+        prog="douyin sync", description="Sync downloads for tracked users"
+    )
     parser.add_argument("--dry-run", action="store_true", help="Preview only, no download")
     parser.add_argument("target", nargs="?", help="Specific user directory name or sec_user_id")
     return parser.parse_args(argv)
@@ -486,12 +525,17 @@ async def main(args: argparse.Namespace | None = None):
             logger.info("   Failed: %d", total_failed)
         logger.info("=" * 50)
 
-    append_log({
-        "type": "sync_summary", "dry_run": dry_run,
-        "total_users": len(user_metas), "total_new_videos": total_new_videos,
-        "total_new_images": total_new_images, "total_deleted": total_deleted,
-        "total_failed": total_failed,
-    })
+    append_log(
+        {
+            "type": "sync_summary",
+            "dry_run": dry_run,
+            "total_users": len(user_metas),
+            "total_new_videos": total_new_videos,
+            "total_new_images": total_new_images,
+            "total_deleted": total_deleted,
+            "total_failed": total_failed,
+        }
+    )
 
 
 if __name__ == "__main__":

@@ -159,9 +159,13 @@ async def collect_once():
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(prog="douyin feed", description="Recommendation feed collector")
+    parser = argparse.ArgumentParser(
+        prog="douyin feed", description="Recommendation feed collector"
+    )
     parser.add_argument("--loop", action="store_true", help="Continuous collection mode")
-    parser.add_argument("--interval", type=int, default=5, help="Minutes between collections (default: 5)")
+    parser.add_argument(
+        "--interval", type=int, default=5, help="Minutes between collections (default: 5)"
+    )
     return parser.parse_args(argv)
 
 

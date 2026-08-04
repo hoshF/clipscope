@@ -29,11 +29,9 @@ class ComPopular(BaseRequestsModel):
     ps: str = "20"
     web_location: str = "333.934"
 
-    
+
 class PlayUrl(BaseRequestsModel):
     qn: str
-    fnval: str = '4048'
+    fnval: str = "4048"
     bvid: str
     cid: str
-    
-
