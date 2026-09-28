@@ -36,7 +36,7 @@ def cmd_grab(args: list[str]) -> None:
     from clipscope.collector.grab import main
 
     sys.argv = ["grab", *args]
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()))
 
 
 def cmd_track(args: list[str]) -> None:
@@ -165,7 +165,7 @@ Usage: uv run douyin <command> [options]
 
 Commands:
   sync [--dry-run]                    Incremental sync download
-  grab <url> <dir>                    Download images/video from a single post
+  grab <url> <dir>                    Download a single post/video (Douyin/TikTok/YouTube/Bilibili)
   track add <url>                     Add a user to tracking
   track list                          List tracked users
   track remove <sec_user_id>          Remove a user from tracking

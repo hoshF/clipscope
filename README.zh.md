@@ -1,8 +1,8 @@
 # ClipScope
 
-ClipScope 是一个本地优先的短视频归档工具集，面向抖音、TikTok 和 Bilibili。提供统一 CLI，支持批量下载、推荐流采集、评论爬取和 Cookie 管理。
+ClipScope 是一个本地优先的短视频归档工具集，面向抖音、TikTok、YouTube 和 Bilibili。提供统一 CLI，支持批量下载、推荐流采集、评论爬取和 Cookie 管理。
 
-爬虫引擎来自 [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API)，已 vendored 到项目内以保证稳定性。
+爬虫引擎来自 [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API)，已 vendored 到项目内以保证稳定性。YouTube 和 Bilibili 的单视频下载由 [yt-dlp](https://github.com/yt-dlp/yt-dlp) 提供。
 
 ```bash
 uv run douyin <command>
@@ -13,6 +13,7 @@ uv run douyin <command>
 | 功能 | 命令 | 说明 |
 | --- | --- | --- |
 | 批量同步 | `uv run douyin sync` | 检查已跟踪用户，只下载新增视频或图集 |
+| 单视频下载 | `uv run douyin grab <url> <dir>` | 下载单个抖音/TikTok/YouTube/Bilibili 视频或图集到指定目录 |
 | 用户追踪 | `uv run douyin track add/list/remove` | 管理要同步的用户列表 |
 | 推荐流追踪 | `uv run douyin feed --loop` | 定时采集推荐流快照 |
 | 评论采集 | `uv run douyin comments <url>` | 采集用户作品下的评论和回复 |
@@ -42,6 +43,8 @@ Cookie 文件放入 `cookies/`（已 gitignore）。爬虫运行时配置覆盖�
 uv run douyin cookies apply
 ```
 
+YouTube 和 Bilibili 的 `grab` 会按需查找 `cookies/youtube.txt` 或 `cookies/bilibili.txt`（同样是 Netscape 格式，直接放入即可，无需 `cookies apply`）。文件不存在时会退回到读取浏览器 Cookie（默认 Chrome），再失败则不带 Cookie 下载——Bilibili 高清晰度和 YouTube 的反爬验证都需要登录态。
+
 `cookies/` 包含登录凭证，已被 Git 忽略。
 
 ## 常用命令
@@ -53,6 +56,10 @@ uv run douyin config
 # 同步下载
 uv run douyin sync --dry-run
 uv run douyin sync
+
+# 单视频下载（抖音/TikTok/YouTube/Bilibili 通用）
+uv run douyin grab "https://www.youtube.com/watch?v=xxxx" ./out
+uv run douyin grab "https://www.bilibili.com/video/BVxxxx" ./out
 
 # 用户追踪
 uv run douyin track add "https://www.douyin.com/user/<sec_user_id>"

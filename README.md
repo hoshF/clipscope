@@ -1,8 +1,8 @@
 # ClipScope
 
-ClipScope is a local-first short-video archive toolkit for Douyin, TikTok, and Bilibili. It provides a stable CLI for batch downloading, feed collection, comment scraping, and cookie management.
+ClipScope is a local-first short-video archive toolkit for Douyin, TikTok, YouTube, and Bilibili. It provides a stable CLI for batch downloading, feed collection, comment scraping, and cookie management.
 
-The crawler engine from [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) is vendored into the project for stability.
+The crawler engine from [Douyin_TikTok_Download_API](https://github.com/Evil0ctal/Douyin_TikTok_Download_API) is vendored into the project for stability. Single-video downloads for YouTube and Bilibili are handled by [yt-dlp](https://github.com/yt-dlp/yt-dlp).
 
 ```bash
 uv run douyin <command>
@@ -13,7 +13,7 @@ uv run douyin <command>
 | Area | Command | Purpose |
 | --- | --- | --- |
 | Batch sync | `uv run douyin sync` | Check tracked users and download newly published videos or albums |
-| Single grab | `uv run douyin grab <url> <dir>` | Download images/video from a single post to any directory |
+| Single grab | `uv run douyin grab <url> <dir>` | Download a single post/video (Douyin/TikTok/YouTube/Bilibili) to any directory |
 | User tracking | `uv run douyin track add/list/remove` | Manage which users to sync |
 | Feed tracking | `uv run douyin feed --loop` | Capture recommendation-feed snapshots over time |
 | Comment collection | `uv run douyin comments <url>` | Collect comments and replies for a Douyin user |
@@ -45,6 +45,8 @@ uv run douyin cookies apply
 
 Cookie files are sensitive and ignored by Git.
 
+For YouTube and Bilibili, `grab` looks for `cookies/youtube.txt` or `cookies/bilibili.txt` (Netscape format; just drop the file in, no `cookies apply` needed). When absent it falls back to browser cookies (Chrome by default), and finally to no cookies. Login state matters: Bilibili high resolutions and YouTube's bot check both require it.
+
 ## CLI Usage
 
 ```bash
@@ -54,6 +56,10 @@ uv run douyin config
 # Sync downloads
 uv run douyin sync --dry-run
 uv run douyin sync
+
+# Single video download (Douyin/TikTok/YouTube/Bilibili)
+uv run douyin grab "https://www.youtube.com/watch?v=xxxx" ./out
+uv run douyin grab "https://www.bilibili.com/video/BVxxxx" ./out
 
 # User tracking
 uv run douyin track add "https://www.douyin.com/user/<sec_user_id>"

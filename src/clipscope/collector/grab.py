@@ -1,4 +1,7 @@
-"""Grab a single Douyin post — download images or video to a target directory.
+"""Grab a single post — download images or video to a target directory.
+
+Douyin/TikTok posts go through the vendored crawler; YouTube and Bilibili
+go through yt-dlp (see collector/downloader.py).
 
 Usage:
     uv run douyin grab <url> <target_dir>
@@ -15,6 +18,7 @@ import sys
 import aiofiles
 import httpx
 
+from clipscope.collector.downloader import grab_ytdlp
 from clipscope.crawler.hybrid.hybrid_crawler import HybridCrawler
 
 logger = logging.getLogger(__name__)
@@ -109,35 +113,51 @@ async def _grab_video(result: dict, target_dir: str) -> bool:
     return False
 
 
-async def main() -> None:
+async def main() -> int:
     args = sys.argv[1:]
     if len(args) < 2:
         logger.error("Usage: uv run douyin grab <url> <target_dir>")
-        return
+        return 1
 
     url = args[0]
     target_dir = os.path.expanduser(args[1])
     os.makedirs(target_dir, exist_ok=True)
+
+    # YouTube / Bilibili are handled by yt-dlp; anything else falls through
+    # to the vendored Douyin/TikTok crawler.
+    ytdlp_result = grab_ytdlp(url, target_dir)
+    if ytdlp_result is not None:
+        if ytdlp_result:
+            logger.info("Saved to %s", target_dir)
+            return 0
+        logger.error("Failed to download via yt-dlp: %s", url)
+        return 1
 
     crawler = HybridCrawler()
     try:
         result = await crawler.hybrid_parsing_single_video(url, minimal=False)
     except Exception as e:
         logger.error("Failed to parse URL: %s", e)
-        return
+        return 1
 
     aweme_type = result.get("aweme_type", 0)
 
     if aweme_type in (2, 68):
         count = await _grab_images(result, target_dir)
+        if count == 0:
+            logger.error("No images downloaded")
+            return 1
         logger.info("Done: %d images saved to %s", count, target_dir)
-    elif aweme_type in (0, 4):
-        ok = await _grab_video(result, target_dir)
-        if not ok:
+        return 0
+    if aweme_type in (0, 4):
+        if not await _grab_video(result, target_dir):
             logger.error("Failed to download video")
-    else:
-        logger.error("Unsupported aweme_type: %d", aweme_type)
+            return 1
+        return 0
+
+    logger.error("Unsupported aweme_type: %d", aweme_type)
+    return 1
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    sys.exit(asyncio.run(main()))

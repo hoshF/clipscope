@@ -20,6 +20,7 @@ dependencies = [
     "pypng",
     "browser-cookie3",
     "importlib_resources",
+    "yt-dlp",
 ]
 
 [project.scripts]
